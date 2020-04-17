@@ -4,9 +4,6 @@
 //#include <tchar.h>
 //#include <math.h>
 
-
-
-
 //Structs
 enum BitmapFormat
 {
@@ -391,28 +388,92 @@ long int GetFieldIntData(Tag * tag)
 
 void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 {
+	bool isOffsetData = false;
+	if (tag->count * GetType(tag->fieldTypeID).size > 4)
+	{
+		std::cout << "Field value size is greater than header value field capacity. These bytes are pointers." << std::endl; //test
+		isOffsetData = true;
+	}
 
 	long int currentFileStreamLocation = stream.tellg();
-	stream.seekg(tag->offsetValue);
+
+	if (isOffsetData)
+		stream.seekg(tag->offsetValue);
 
 	if (tag->fieldTypeID == 3) //short
 	{
 		char buffer[2];
 		for (int i = 0; i < tag->count; i++)
 		{
-			stream.read(buffer, sizeof(buffer));
+			if (isOffsetData)
+				stream.read(buffer, sizeof(buffer));
+			else //This would only trigger if count equals 1 or 2.
+			{ //TODO test this implementation
+				long int temp = tag->offsetValue;
+				if (isBigEndian)
+				{
+					buffer[0] = (char)((temp & (0xFF000000 >> (8 * i))) >> (8 * (1 + (tag->count - i))));
+					buffer[1] = (char)((temp & (0x00FF0000 >> (8 * i))) >> (8 * (tag->count - i)));
+				}
+				else
+				{
+					buffer[0] = (char)((temp & (0x000000FF << (8 * i))) >> (8 * i));
+					buffer[1] = (char)((temp & (0x0000FF00) << (8 * i)) >> (8 * (i + 1)));
+				}
+			}
+
 			outputArray[i] = BytesToInt16(buffer);
 		}
 	}
-	else if (tag->fieldTypeID == 3) //short
+	else if (tag->fieldTypeID == 4) //long
 	{
 		char buffer[4];
 		for (int i = 0; i < tag->count; i++)
 		{
-			stream.read(buffer, sizeof(buffer));
+			/*if (isOffsetData)
+			{
+				stream.read(buffer, sizeof(buffer));
+				outputArray[i] = BytesToInt32(buffer);
+			}
+			else
+				outputArray[i] = tag->offsetValue;*/
+
+			//Note: the commented out implementation above is a cleaner, optimized version. Both it and th one bellow output the same result.
+			//The implementation bellow, while works, doesn't make sense because the result when isOffsetData == false will always be equal to that of tag->offsetValue, because isOffsetData == false
+			//only and only if there is a single long int value inside the tag->offsetValue (because count == 1).
+			
+			if (isOffsetData)
+				stream.read(buffer, sizeof(buffer));
+			else
+			{
+				long int temp = tag->offsetValue;
+				if (isBigEndian)
+				{
+					buffer[0] = (char)((temp & 0xFF000000) >> 24);
+					buffer[1] = (char)((temp & 0x00FF0000) >> 16);
+					buffer[2] = (char)((temp & 0x0000FF00) >> 8);
+					buffer[3] = (char)((temp & 0x000000FF));
+				}
+				else
+				{
+					buffer[0] = (char)((temp & 0x000000FF));
+					buffer[1] = (char)((temp & 0x0000FF00) >> 8);
+					buffer[2] = (char)((temp & 0x00FF0000) >> 16);
+					buffer[3] = (char)((temp & 0xFF000000) >> 24);
+				}
+			}
+
 			outputArray[i] = BytesToInt32(buffer);
 		}
 	}
+
+	//test
+	std::cout << "GetFieldIntArry result: " << std::endl;
+	for (int i = 0; i < tag->count; i++)
+		std::cout << outputArray[i] << std::endl;;
+	
+	//endtest
+
 
 	stream.seekg(currentFileStreamLocation);
 }
@@ -434,9 +495,14 @@ void ProcessTag(Tag * tag)
 		tiffDetails.compression = GetFieldIntData(tag);
 		break;
 	case (273): //stripoffsets
+	{
+		std::cout << "allocating tileStripOffset array of rows: " << tag->count << std::endl; //test
 		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
 		tiffDetails.noOfTilesOrStrips = tag->count;
 		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
+
+		std::cout << "Result using GetFieldIntData() : " << GetFieldIntData(tag) << std::endl;//test
+	}
 		break;
 	case (278): //rowsperstrip
 		tiffDetails.bitmapFormat = BitmapFormat::strips;
@@ -453,9 +519,11 @@ void ProcessTag(Tag * tag)
 		tiffDetails.tileHeight = GetFieldIntData(tag);
 		break;
 	case (324): //tileoffsets
+	{
 		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
 		tiffDetails.noOfTilesOrStrips = tag->count;
 		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
+	}
 		break;
 	case (322): //tilewidth
 		tiffDetails.tileWidth = GetFieldIntData(tag);
@@ -476,7 +544,6 @@ void ProcessTag(Tag * tag)
 		break;
 	}
 }
-
 
 void main()
 {
@@ -533,7 +600,7 @@ void main()
 
 	for (int i = 0; i < numberOfIFDEntries; i++)
 	{
-		//std::cout << "===================================================================" << std::endl;
+		std::cout << "===================================================================" << std::endl;
 		std::cout << "Tag loop: " << i << std::endl;
 
 		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
