@@ -1,0 +1,691 @@
+#include <iostream>
+#include <fstream>
+//#include <functional>
+//#include <tchar.h>
+//#include <math.h>
+
+
+
+
+//Structs
+enum BitmapFormat
+{
+	strips, tiles, undefined
+};
+
+struct TIFFDetails
+{
+public:
+	int width;
+	int height;
+
+	int samplesPerPixel;
+	int bitsPerSample;
+	int extraSampleType;
+	int compression;
+
+	int photometricInterpretation;
+	int planarConfiguration;
+
+	BitmapFormat bitmapFormat = BitmapFormat::undefined;
+
+	std::unique_ptr<long int> tileStripOffset; //the offsets for the the tiles or strips.
+	long int noOfTilesOrStrips;
+	long int tileStripByteCount;
+	long int rowsPerStrip;
+	long int tileHeight;
+	long int tileWidth;
+};
+
+struct Tag
+{
+	short int tagID;
+	short int fieldTypeID;
+	long int count;
+	long int offsetValue;
+};
+
+struct Type
+{
+public:
+	std::string description;
+	int size; //in bytes
+
+	bool isASCII;
+	bool isFloat;
+	bool isSigned;
+	bool isRational;
+	bool isUndefined;
+	bool isUndetermined; //in case the program failed to determine the type, this is a program-breaking state.
+};
+
+//variables
+bool isBigEndian;
+std::ifstream stream;
+TIFFDetails tiffDetails;
+
+//functions
+long int BytesToInt32(char bytes[4])//, bool _isBigEndian)
+{
+	if (isBigEndian)
+		return (((unsigned char)bytes[0] << 24) | ((unsigned char)bytes[1] << 16) | ((unsigned char)bytes[2] << 8) | (unsigned char)bytes[3]);
+	else
+		return (((unsigned char)bytes[3] << 24) | ((unsigned char)bytes[2] << 16) | ((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
+}
+
+int BytesToInt16(char bytes[2])//, bool _isBigEndian)
+{
+	if (isBigEndian)
+		return (((unsigned char)bytes[0] << 8) | (unsigned char)bytes[1]);
+	else
+		return (((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
+}
+
+short int BytesToInt8(char bytes[1])
+{
+	return (unsigned char)bytes[0];
+}
+
+std::string GetFieldDescription(short int tagID)
+{
+	std::string desc;
+
+	switch (tagID)
+	{
+		//Basline required tags:
+			//Bi-level and Gray-scale Classes' required tags:
+	case (254):
+		desc = "NewSubFileType";
+		break;
+	case (256):
+		desc = "ImageWidth";
+		break;
+	case (257):
+		desc = "ImageLength";
+		break;
+	case (258):
+		desc = "BitsPerSample";
+		break;
+	case (259):
+		desc = "Compression";
+		break;
+	case (262):
+		desc = "PhotometricInterpretation";
+		break;
+	case (273):
+		desc = "StripOffsets";
+		break;
+	case (277):
+		desc = "SamplesPerPixel";
+		break;
+	case (278):
+		desc = "RowsPerStrip";
+		break;
+	case (279):
+		desc = "StripByteCounts";
+		break;
+	case (282):
+		desc = "XResolution";
+		break;
+	case (283):
+		desc = "YResolution";
+		break;
+	case (296):
+		desc = "ResolutionUnit";
+		break;
+		//Palette-color Class required tags [In addition to all the first thirteen tags]:
+	case (320):
+		desc = "ColorMap";
+		break;
+		//RGB Class required tags [In addition to all the first thirteen tags]:
+	case (284):
+		desc = "PlanarConfiguration";
+		break;
+		//YCbCr Class required tags [In addition to all the first thirteen tags]:
+	case (529):
+		desc = "YCbCrCoeffients";
+		break;
+	case (530):
+		desc = "YCbCrSubSampling";
+		break;
+	case (531):
+		desc = "YCbCrPositioning";
+		break;
+	case (532):
+		desc = "ReferenceBlackWhite";
+		break;
+		//Class F required tags [In addition to all the first thirteen tags]:
+	case (326):
+		desc = "BadFaxLines";
+		break;
+	case (327):
+		desc = "CleanFaxLines";
+		break;
+	case (328):
+		desc = "ConsecutiveBadFaxLines";
+		break;
+
+		//Additional Tags:
+	case (315):
+		desc = "Artist";
+		break;
+	case (265):
+		desc = "CellLength";
+		break;
+	case (264):
+		desc = "CellWidth";
+		break;
+	case (1):
+		desc = "Uncompressed";
+		break;
+	case (2):
+		desc = "CCITT 1D";
+		break;
+	case (3):
+		desc = "CCITT Group 3";
+		break;
+	case (4):
+		desc = "CCITT Group 4";
+		break;
+	case (5):
+		desc = "LZW";
+		break;
+	case (6):
+		desc = "JPEG";
+		break;
+	case (32773):
+		desc = "Packbits";
+		break;
+	case (33432):
+		desc = "Copyright";
+		break;
+	case (306):
+		desc = "DateTime";
+		break;
+	case (269):
+		desc = "DocumentName";
+		break;
+	case (336):
+		desc = "DotRange";
+		break;
+	case (338):
+		desc = "ExtraSamples";
+		break;
+	case (226):
+		desc = "FillOrder";
+		break;
+	case (289):
+		desc = "FreeByteCounts";
+		break;
+	case (288):
+		desc = "FreeOffsets";
+		break;
+	case (291):
+		desc = "GrayResponseCurve";
+		break;
+	case (290):
+		desc = "GrayResponseUnity";
+		break;
+	case (321):
+		desc = "HalftoneHints";
+		break;
+	case (316):
+		desc = "HostComputer";
+		break;
+	case (270):
+		desc = "ImageDescription";
+		break;
+	case (333):
+		desc = "InkNames";
+		break;
+	case (332):
+		desc = "InkSet";
+		break;
+	case (305):
+		desc = "Software";
+		break;
+	case (325):
+		desc = "TileByteCount";
+		break;
+	case (323):
+		desc = "TileLength";
+		break;
+	case (324):
+		desc = "TileOffsets";
+		break;
+	case (322):
+		desc = "TileWidth";
+		break;
+	default:
+		desc = "Not yet defined or unknown";
+		break;
+	}
+	std::cout << desc.c_str() << std::endl;
+	return desc;
+}
+
+Type GetType(short int typeID)
+{
+	Type type;
+	//since there are many shared values among the types, we initialize the struct to the lowest common denominators and save ourselves lines in the Switch bellow.
+	type.description = "";
+	type.size = 1;
+	type.isASCII = false;
+	type.isFloat = false;
+	type.isSigned = false;
+	type.isRational = false;
+	type.isUndefined = false;
+	type.isUndetermined = false;
+
+	switch (typeID)
+	{
+	case 1:
+		type.description = "BYTE | 8-bit unsigned integer";
+		break;
+	case 2:
+		type.description = "ASCII | 8-bit byte that contains a 7-bit ASCII code; the last bytemust be NUL (binary zero)";
+		type.isASCII = true;
+		break;
+	case 3:
+		type.description = "SHORT | 16-bit (2-byte) unsigned integer";
+		type.size = 2;
+		break;
+	case 4:
+		type.description = "LONG | 32-bit (4-byte) unsigned integer";
+		type.size = 4;
+		break;
+	case 5:
+		type.description = "RATIONAL | Two LONGs:  the first represents the numerator of afraction; the second, the denominator.";
+		type.size = 8;
+		type.isRational = true;
+		break;
+	case 6:
+		type.description = "SBYTE | An 8-bit signed (twos-complement) integer.";
+		type.isSigned = true;
+		break;
+	case 7:
+		type.description = "UNDEFINED | An 8-bit byte that may contain anything, depending onthe definition of the field";
+		type.isUndefined = true;
+		break;
+	case 8:
+		type.description = "SSHORT | A 16-bit (2-byte) signed (twos-complement) integer."; //===
+		type.size = 2;
+		type.isSigned = true;
+		break;
+	case 9:
+		type.description = "SLONG | A 32-bit (4-byte) signed (twos-complement) integer.";
+		type.size = 4;
+		type.isSigned = true;
+		break;
+	case 10:
+		type.description = "SRATIONAL | Two SLONG’s:  the first represents the numerator of afraction, the second the denominator.";
+		type.size = 8;
+		type.isSigned = true;
+		type.isRational = true;
+		break;
+	case 11:
+		type.description = "FLOAT | Single precision (4-byte) IEEE format.";
+		type.size = 4;
+		type.isSigned = true;
+		type.isFloat = true;
+		break;
+	case 12:
+		type.description = "DOUBLE | Double precision (8-byte) IEEE format";
+		type.size = 8;
+		type.isSigned = true;
+		type.isFloat = true;
+		break;
+	default:
+		type.description = "ERROR! Could not determine type of field";
+		type.isUndetermined = true;
+		break;
+	}
+
+	//std::cout << desc.c_str() << std::endl;
+	return type;
+}
+
+long int GetFieldIntData(Tag * tag)
+{
+	bool isOffsetData = false;
+	if (tag->count * GetType(tag->fieldTypeID).size > 4)
+	{
+		//std::cout << "Field value size is greater than header value field capacity. These bytes are pointers." << std::endl; //test
+		isOffsetData = true;
+	}
+	long int currentFileStreamLocation = stream.tellg();
+
+	long int value;
+
+	if (isOffsetData)
+	{
+		stream.seekg(tag->offsetValue);
+
+		if (tag->fieldTypeID == 1)
+		{
+			char buffer[1];
+			stream.read(buffer, sizeof(buffer));
+			value = BytesToInt8(buffer);
+		}
+		if (tag->fieldTypeID == 3) //short
+		{
+			char buffer[2];
+			stream.read(buffer, sizeof(buffer));
+			value = BytesToInt16(buffer);
+		}
+		else if (tag->fieldTypeID == 4) //long
+		{
+			char buffer[4];
+			stream.read(buffer, sizeof(buffer));
+			value = BytesToInt32(buffer);
+		}
+		stream.seekg(currentFileStreamLocation);
+	}
+	else
+	{
+		value = tag->offsetValue;
+	}
+
+	return value;
+}
+
+void GetFieldIntArrayData(Tag * tag, long int * outputArray)
+{
+
+	long int currentFileStreamLocation = stream.tellg();
+	stream.seekg(tag->offsetValue);
+
+	if (tag->fieldTypeID == 3) //short
+	{
+		char buffer[2];
+		for (int i = 0; i < tag->count; i++)
+		{
+			stream.read(buffer, sizeof(buffer));
+			outputArray[i] = BytesToInt16(buffer);
+		}
+	}
+	else if (tag->fieldTypeID == 3) //short
+	{
+		char buffer[4];
+		for (int i = 0; i < tag->count; i++)
+		{
+			stream.read(buffer, sizeof(buffer));
+			outputArray[i] = BytesToInt32(buffer);
+		}
+	}
+
+	stream.seekg(currentFileStreamLocation);
+}
+
+void ProcessTag(Tag * tag)
+{
+	switch (tag->tagID)
+	{
+	case (256): //width
+		tiffDetails.width = GetFieldIntData(tag);
+		break;
+	case (257): //height
+		tiffDetails.height = GetFieldIntData(tag);
+		break;
+	case (258): //bps
+		tiffDetails.bitsPerSample = GetFieldIntData(tag);
+		break;
+	case (259): //compression
+		tiffDetails.compression = GetFieldIntData(tag);
+		break;
+	case (273): //stripoffsets
+		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
+		tiffDetails.noOfTilesOrStrips = tag->count;
+		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
+		break;
+	case (278): //rowsperstrip
+		tiffDetails.bitmapFormat = BitmapFormat::strips;
+		tiffDetails.rowsPerStrip = GetFieldIntData(tag);
+		break;
+	case (279): //stripbytecount
+		tiffDetails.tileStripByteCount = GetFieldIntData(tag);
+		break;
+	case (325): //tilebytecount
+		tiffDetails.bitmapFormat = BitmapFormat::tiles;
+		tiffDetails.tileStripByteCount = GetFieldIntData(tag);
+		break;
+	case (323): //tilelength
+		tiffDetails.tileHeight = GetFieldIntData(tag);
+		break;
+	case (324): //tileoffsets
+		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
+		tiffDetails.noOfTilesOrStrips = tag->count;
+		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
+		break;
+	case (322): //tilewidth
+		tiffDetails.tileWidth = GetFieldIntData(tag);
+		break;
+	case (277): //samplesperpixel
+		tiffDetails.samplesPerPixel = GetFieldIntData(tag);
+		break;
+	case (338): //extrasampletype
+		tiffDetails.extraSampleType = GetFieldIntData(tag);
+		break;
+	case (262):
+		tiffDetails.photometricInterpretation = GetFieldIntData(tag);
+		break;
+	case (284):
+		tiffDetails.planarConfiguration = GetFieldIntData(tag);
+		break;
+	default:
+		break;
+	}
+}
+
+
+void main()
+{
+	stream.open("testTIFF.tif", std::ios::binary | std::ios::in);
+
+	if (!stream.is_open())
+		std::cout << "Could not open file" << std::endl;
+
+	char byte[1];
+	char word[2];
+	char dword[4];
+	char qword[8];
+
+	//determine endianness
+	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	stream.read(word, sizeof(word));
+	std::cout << "byte order: " << word[0] << word[1] << std::endl;
+
+	switch (word[0])
+	{
+	case 'I':
+		isBigEndian = false;
+		std::cout << "Byte order set to little-endian" << std::endl;
+		break;
+	case 'M':
+		isBigEndian = true;
+		std::cout << "Byte order set to Big-endian" << std::endl;
+		break;
+	default:
+		std::cout << "Could not determine the byte order of the file" << std::endl;
+		break;
+	}
+
+	//check version (should always be 42)
+	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	stream.read(word, sizeof(word));
+	std::cout << "Format version: " << BytesToInt16(word) << std::endl;
+
+	//check offset to first IFD (Image File Directory)
+	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	stream.read(dword, sizeof(dword));
+	long int firstIFDOffset = BytesToInt32(dword); //might need it later
+	std::cout << "First IFD offsett: " << firstIFDOffset << std::endl;
+
+	//seek to first IFD begining
+	stream.seekg(firstIFDOffset, stream.beg);
+	//stream.seekg(21, stream.beg);
+
+	//check IFD header
+	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	stream.read(word, sizeof(word));
+	short int numberOfIFDEntries = BytesToInt16(word);
+	std::cout << "Number of IFD enteries: " << numberOfIFDEntries << std::endl;
+
+	for (int i = 0; i < numberOfIFDEntries; i++)
+	{
+		//std::cout << "===================================================================" << std::endl;
+		std::cout << "Tag loop: " << i << std::endl;
+
+		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
+
+		//-----------------------------------------
+		//std::cout << "Current file loc: " << stream.tellg() << "\t";
+		stream.read(word, sizeof(word));
+		tag.get()->tagID = BytesToInt16(word);
+		//std::cout << "Field identifying tag: " << tag.get()->tagID << " -- ";
+		//GetFieldDescription(tag.get()->tagID);
+
+		//-----------------------------------------
+		//std::cout << "Current file loc: " << stream.tellg() << "\t";
+		stream.read(word, sizeof(word));
+		tag.get()->fieldTypeID = BytesToInt16(word);
+		//std::cout << "Field type ID: " << tag.get()->fieldTypeID << " -- " << GetType(tag.get()->fieldTypeID).description.c_str() << std::endl;
+
+		//-----------------------------------------
+		//std::cout << "Current file loc: " << stream.tellg() << "\t";
+		stream.read(dword, sizeof(dword));
+		tag.get()->count = BytesToInt32(dword);
+		//std::cout << "Count: " << tag.get()->count << std::endl;
+
+		//-----------------------------------------
+		//std::cout << "Current file loc: " << stream.tellg() << "\t";
+		stream.read(dword, sizeof(dword));
+		tag.get()->offsetValue = BytesToInt32(dword);
+		//std::cout << "Value offset: " << tag.get()->offsetValue << std::endl;
+
+		ProcessTag(tag.get());
+	}
+
+	std::cout << "===================================================================" << std::endl;
+	std::cout << "Finished processing tags" << std::endl;
+	std::cout << "===================================================================" << std::endl;
+	std::cout << "Tiff Details:" << std::endl;
+
+	std::cout << "Dimensions :" << tiffDetails.width << " x " << tiffDetails.height << std::endl;
+	std::cout << "Samples Per Pixel: " << tiffDetails.samplesPerPixel << std::endl;
+	std::cout << "Bits Per Sample: " << tiffDetails.bitsPerSample << std::endl;
+	std::cout << "Extra Samples Type: " << tiffDetails.extraSampleType << std::endl;
+	std::cout << "Compression: " << tiffDetails.compression << std::endl;
+
+	std::cout << "Photmetric Interpretation: " << tiffDetails.photometricInterpretation << std::endl;
+	std::cout << "Planar Configuration: " << tiffDetails.planarConfiguration << std::endl;
+
+	int noOfPixelsPerTileStrip = tiffDetails.tileStripByteCount / (tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8);
+
+
+	switch (tiffDetails.bitmapFormat)
+	{
+	case BitmapFormat::strips:
+		std::cout << "Bitmap format: " << "strips" << std::endl;
+		std::cout << "No. of Strip:" << tiffDetails.noOfTilesOrStrips << std::endl;
+		std::cout << "Strip Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
+		std::cout << "Rows per Strip: " << tiffDetails.rowsPerStrip << std::endl;
+		std::cout << "No. of Pixels per Strip: " << noOfPixelsPerTileStrip << std::endl;
+
+		std::cout << "--------------------" << std::endl;
+		std::cout << "Strip offsets:" << std::endl;
+		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
+		std::cout << "--------------------" << std::endl;
+		break;
+
+	case BitmapFormat::tiles:
+		std::cout << "Bitmap format: " << "tiles" << std::endl;
+		std::cout << "No. of Tiles:" << tiffDetails.noOfTilesOrStrips << std::endl;
+		std::cout << "Tile Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
+		std::cout << "Tile Height: " << tiffDetails.tileHeight << std::endl;
+		std::cout << "Tile Width: " << tiffDetails.tileWidth << std::endl;
+		std::cout << "No. of Pixels per Tile: " << noOfPixelsPerTileStrip << std::endl;
+
+		std::cout << "--------------------" << std::endl;
+		std::cout << "Tile offsets:" << std::endl;
+		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
+		std::cout << "--------------------" << std::endl;
+		break;
+
+	case BitmapFormat::undefined:
+		std::cout << "Bitmap format: " << "undefined" << std::endl;
+		break;
+
+	default:
+		break;
+	}
+
+	if (tiffDetails.planarConfiguration != 1)
+	{
+		std::cout << "ERROR! This reader cannot parse non-chunky (TIFF6.0 Planar Configuration other than 1) TIFF files." << std::endl;
+	}
+	else if (tiffDetails.bitsPerSample != 8 && tiffDetails.bitsPerSample != 16 && tiffDetails.bitsPerSample != 32)
+	{
+		std::cout << "ERROR! This reader can only parse 8, 16 and 32 bits-per-samples images." << std::endl;
+	}
+	else
+	{
+		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+		{
+			std::cout << "Data for strip no " << i << std::endl;
+			stream.seekg(tiffDetails.tileStripOffset.get()[i]);
+
+			for (int j = 0; j < noOfPixelsPerTileStrip; j++)
+			{
+				switch (tiffDetails.bitsPerSample)
+				{
+				case (8):
+				{
+					char pixel[3][1];
+					stream.read(pixel[0], sizeof(pixel[0]));
+					stream.read(pixel[1], sizeof(pixel[1]));
+					stream.read(pixel[2], sizeof(pixel[2]));
+
+					std::cout << BytesToInt8(pixel[0]) << ", " << BytesToInt8(pixel[1]) << ", " << BytesToInt8(pixel[2]) << ", " << "\t";
+					if (j%tiffDetails.width == tiffDetails.width - 1)
+						std::cout << "Row end" << std::endl;
+				}
+				break;
+
+				case (16):
+				{
+					char pixel[3][2];
+					stream.read(pixel[0], sizeof(pixel[0]));
+					stream.read(pixel[1], sizeof(pixel[1]));
+					stream.read(pixel[2], sizeof(pixel[2]));
+
+					std::cout << BytesToInt16(pixel[0]) << ", " << BytesToInt16(pixel[1]) << ", " << BytesToInt16(pixel[2]) << ", " << "\t";
+					if (j%tiffDetails.width == 0)
+						std::cout << "Row end" << std::endl;
+				}
+				break;
+
+				case (32):
+				{
+					char pixel[3][4];
+					stream.read(pixel[0], sizeof(pixel[0]));
+					stream.read(pixel[1], sizeof(pixel[1]));
+					stream.read(pixel[2], sizeof(pixel[2]));
+
+					std::cout << BytesToInt32(pixel[0]) << ", " << BytesToInt32(pixel[1]) << ", " << BytesToInt32(pixel[2]) << ", " << "\t";
+					if (j%tiffDetails.width == 0)
+						std::cout << "Row end" << std::endl;
+				}
+				break;
+
+				default:
+					break;
+				}
+			}
+		}
+	}
+
+}
+
