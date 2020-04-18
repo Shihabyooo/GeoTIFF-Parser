@@ -4,6 +4,8 @@
 //#include <tchar.h>
 //#include <math.h>
 
+#include "Array2D.h"
+
 //Structs
 enum BitmapFormat
 {
@@ -19,10 +21,13 @@ public:
 	int samplesPerPixel;
 	int bitsPerSample;
 	int extraSampleType;
+	int sampleFormat;
 	int compression;
 
 	int photometricInterpretation;
 	int planarConfiguration;
+
+	int noOfPixelsPerTileStrip;
 
 	BitmapFormat bitmapFormat = BitmapFormat::undefined;
 
@@ -57,12 +62,17 @@ public:
 };
 
 //variables
+bool viewTagsInCLI = true;
 bool isBigEndian;
 std::ifstream stream;
 TIFFDetails tiffDetails;
+//std::unique_ptr<Array2D> bitMap;	//image bitmap will be stored as an array of Array2D, each Array2D will hold the pixel colours of a single strip/tile.
+									//each Array2D will be of size (image width, no of samples per pixel). This allows for the access format bitMap.get()[pixel row][pixel column][pixel channel]
+
+Array2D * bitMap;
 
 //functions
-long int BytesToInt32(char bytes[4])//, bool _isBigEndian)
+long int BytesToInt32(const char bytes[4])//, bool _isBigEndian)
 {
 	if (isBigEndian)
 		return (((unsigned char)bytes[0] << 24) | ((unsigned char)bytes[1] << 16) | ((unsigned char)bytes[2] << 8) | (unsigned char)bytes[3]);
@@ -70,7 +80,7 @@ long int BytesToInt32(char bytes[4])//, bool _isBigEndian)
 		return (((unsigned char)bytes[3] << 24) | ((unsigned char)bytes[2] << 16) | ((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
 }
 
-int BytesToInt16(char bytes[2])//, bool _isBigEndian)
+int BytesToInt16(const char bytes[2])//, bool _isBigEndian)
 {
 	if (isBigEndian)
 		return (((unsigned char)bytes[0] << 8) | (unsigned char)bytes[1]);
@@ -78,9 +88,32 @@ int BytesToInt16(char bytes[2])//, bool _isBigEndian)
 		return (((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
 }
 
-short int BytesToInt8(char bytes[1])
+short int BytesToInt8(const char bytes[1])
 {
 	return (unsigned char)bytes[0];
+}
+
+long int BytesToIntX(const char bytes[4], int intSize) //int size in bits
+{
+	long int result;
+
+	switch (intSize)
+	{
+	case (8):
+		result = BytesToInt8(bytes);
+		break;
+	case (16):
+		result = BytesToInt16(bytes);
+		break;
+	case (32):
+		result = BytesToInt32(bytes);
+		break;
+	default:
+		std::cout << "ERROR! Attempting to convert a bytestream to an unsupported size for integers. Supported sizes: 1, 2 and 4 bytes only. Returning zero" << std::endl;
+		result = 0;
+		break;
+	}
+	return result;
 }
 
 std::string GetFieldDescription(short int tagID)
@@ -540,17 +573,159 @@ void ProcessTag(Tag * tag)
 	case (284):
 		tiffDetails.planarConfiguration = GetFieldIntData(tag);
 		break;
+	case (339):
+		tiffDetails.sampleFormat = GetFieldIntData(tag);
+		break;
 	default:
 		break;
 	}
 }
 
-void main()
+void ParseUncompressedStripOrTileData(int stripOrTileID)
 {
-	stream.open("testTIFF.tif", std::ios::binary | std::ios::in);
+	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
+
+	//TODO add a check here that the bites per sample are either 8, 16 or 32
+
+	char ** pixel;
+	pixel = new char *[tiffDetails.samplesPerPixel];
+	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
+		pixel[i] = new char[tiffDetails.bitsPerSample / 8];
+
+	std::cout << "pixel buffer size: " << tiffDetails.samplesPerPixel << " x " << tiffDetails.bitsPerSample / 8 << std::endl;
+
+	for (int i = 0; i < tiffDetails.noOfPixelsPerTileStrip; i++)
+	{
+		int xCoord = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width);
+		int yCoord = i % tiffDetails.width;
+
+		std::cout << "coords: " << xCoord << ", " << yCoord << std::endl;
+
+
+		for (int j = 0; j < tiffDetails.samplesPerPixel; j++)
+		{
+			switch (tiffDetails.sampleFormat)
+			{
+			case (1): //unsigned int
+				stream.read(pixel[j], tiffDetails.bitsPerSample / 8);
+				bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
+				break;
+			
+			case (2): //two’s complement signed integer data
+				std::cout << "ERROR! Two’s Complement Signed Integer TIFFs aren't supported yet." << std::endl;
+				break;
+			
+			case (3): //floats
+				if (tiffDetails.bitsPerSample <= 32)
+				{
+					float _sample;
+					stream.read((char*)&_sample, tiffDetails.bitsPerSample / 8);
+					bitMap[xCoord].SetValue(yCoord, j, _sample);
+				}
+				else
+				{
+					double _sample;
+					stream.read((char*)&_sample, tiffDetails.bitsPerSample / 8);
+					bitMap[xCoord].SetValue(yCoord, j, _sample);
+				}
+				break;
+			default: //default is unsigned int (case 1)
+				stream.read(pixel[j], tiffDetails.bitsPerSample / 8);
+				bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
+				break;
+			}
+			std::cout << "Pixel Channel: " << j << ", value: " << bitMap[xCoord][yCoord][j] << std::endl; //test
+		}
+
+	}
+
+	//release the pixel array we allocated above
+	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
+		delete[] pixel[i];
+	delete[] pixel;
+
+
+}
+
+bool ParseStripOrTileData(int stripOrTileID)
+{
+	switch (tiffDetails.compression)
+	{
+	case (1): //no compression
+		ParseUncompressedStripOrTileData(stripOrTileID);
+		break;
+
+	case (32773): //PackBits (Macintosh RLE)
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (2): //CCITT modified Huffman RLE
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (3): //CCITT Group 3 fax encoding
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (4): //CCITT Group 4 fax encoding
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (5): //LZW
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (6): //JPEG (old style, deprecated?)
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (7): //JPEG (new style)
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (8): //Deflate
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (9): //"Defined by TIFF-F and TIFF-FX standard (RFC 2301) as ITU-T Rec. T.82 coding, using ITU-T Rec. T.85 (which boils down to JBIG on black and white). "
+				//https://www.awaresystems.be/imaging/tiff/tifftags/compression.html
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	case (10): //"Defined by TIFF-F and TIFF-FX standard (RFC 2301) as ITU-T Rec. T.82 coding, using ITU-T Rec. T.43 (which boils down to JBIG on color). "
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+
+	default:
+		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		return false;
+		break;
+	}
+	return true;
+}
+
+
+bool main()
+{
+	//stream.open("dem_GCS.tif", std::ios::binary | std::ios::in);
+	//stream.open("testTIFF.tif", std::ios::binary | std::ios::in);
+	stream.open("testTIFF_32.tif", std::ios::binary | std::ios::in);
 
 	if (!stream.is_open())
+	{
 		std::cout << "Could not open file" << std::endl;
+		return false;
+	}
 
 	char byte[1];
 	char word[2];
@@ -600,35 +775,35 @@ void main()
 
 	for (int i = 0; i < numberOfIFDEntries; i++)
 	{
-		std::cout << "===================================================================" << std::endl;
-		std::cout << "Tag loop: " << i << std::endl;
-
 		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
 
 		//-----------------------------------------
-		//std::cout << "Current file loc: " << stream.tellg() << "\t";
 		stream.read(word, sizeof(word));
 		tag.get()->tagID = BytesToInt16(word);
-		//std::cout << "Field identifying tag: " << tag.get()->tagID << " -- ";
-		//GetFieldDescription(tag.get()->tagID);
-
 		//-----------------------------------------
-		//std::cout << "Current file loc: " << stream.tellg() << "\t";
 		stream.read(word, sizeof(word));
 		tag.get()->fieldTypeID = BytesToInt16(word);
-		//std::cout << "Field type ID: " << tag.get()->fieldTypeID << " -- " << GetType(tag.get()->fieldTypeID).description.c_str() << std::endl;
-
 		//-----------------------------------------
-		//std::cout << "Current file loc: " << stream.tellg() << "\t";
 		stream.read(dword, sizeof(dword));
 		tag.get()->count = BytesToInt32(dword);
-		//std::cout << "Count: " << tag.get()->count << std::endl;
-
 		//-----------------------------------------
-		//std::cout << "Current file loc: " << stream.tellg() << "\t";
 		stream.read(dword, sizeof(dword));
 		tag.get()->offsetValue = BytesToInt32(dword);
-		//std::cout << "Value offset: " << tag.get()->offsetValue << std::endl;
+
+		if (viewTagsInCLI)
+		{
+			std::cout << "===================================================================" << std::endl;
+			std::cout << "Tag loop: " << i << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Field identifying tag: " << tag.get()->tagID << " -- ";
+			GetFieldDescription(tag.get()->tagID);
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Field type ID: " << tag.get()->fieldTypeID << " -- " << GetType(tag.get()->fieldTypeID).description.c_str() << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Count: " << tag.get()->count << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Value offset: " << tag.get()->offsetValue << std::endl;
+		}
 
 		ProcessTag(tag.get());
 	}
@@ -642,12 +817,13 @@ void main()
 	std::cout << "Samples Per Pixel: " << tiffDetails.samplesPerPixel << std::endl;
 	std::cout << "Bits Per Sample: " << tiffDetails.bitsPerSample << std::endl;
 	std::cout << "Extra Samples Type: " << tiffDetails.extraSampleType << std::endl;
+	std::cout << "Sample Format: " << tiffDetails.sampleFormat << std::endl;
 	std::cout << "Compression: " << tiffDetails.compression << std::endl;
 
 	std::cout << "Photmetric Interpretation: " << tiffDetails.photometricInterpretation << std::endl;
 	std::cout << "Planar Configuration: " << tiffDetails.planarConfiguration << std::endl;
 
-	int noOfPixelsPerTileStrip = tiffDetails.tileStripByteCount / (tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8);
+	tiffDetails.noOfPixelsPerTileStrip = tiffDetails.tileStripByteCount / (tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8);
 
 
 	switch (tiffDetails.bitmapFormat)
@@ -657,7 +833,7 @@ void main()
 		std::cout << "No. of Strip:" << tiffDetails.noOfTilesOrStrips << std::endl;
 		std::cout << "Strip Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
 		std::cout << "Rows per Strip: " << tiffDetails.rowsPerStrip << std::endl;
-		std::cout << "No. of Pixels per Strip: " << noOfPixelsPerTileStrip << std::endl;
+		std::cout << "No. of Pixels per Strip: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
 
 		std::cout << "--------------------" << std::endl;
 		std::cout << "Strip offsets:" << std::endl;
@@ -672,7 +848,7 @@ void main()
 		std::cout << "Tile Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
 		std::cout << "Tile Height: " << tiffDetails.tileHeight << std::endl;
 		std::cout << "Tile Width: " << tiffDetails.tileWidth << std::endl;
-		std::cout << "No. of Pixels per Tile: " << noOfPixelsPerTileStrip << std::endl;
+		std::cout << "No. of Pixels per Tile: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
 
 		std::cout << "--------------------" << std::endl;
 		std::cout << "Tile offsets:" << std::endl;
@@ -689,6 +865,21 @@ void main()
 		break;
 	}
 
+	//Allocate our bitmap in memory as an array of Array2D.
+	//bitMap = std::unique_ptr<Array2D>(new Array2D[tiffDetails.height]);
+	//for (int i = 0; i < tiffDetails.height; i++)
+	//{
+	//	bitMap.get()[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
+	//}
+
+	bitMap = new Array2D[tiffDetails.height];
+	for (int i = 0; i < tiffDetails.height; i++)
+	{
+		bitMap[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
+	}
+
+
+
 	if (tiffDetails.planarConfiguration != 1)
 	{
 		std::cout << "ERROR! This reader cannot parse non-chunky (TIFF6.0 Planar Configuration other than 1) TIFF files." << std::endl;
@@ -702,57 +893,17 @@ void main()
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 		{
 			std::cout << "Data for strip no " << i << std::endl;
-			stream.seekg(tiffDetails.tileStripOffset.get()[i]);
+			//stream.seekg(tiffDetails.tileStripOffset.get()[i]);
 
-			for (int j = 0; j < noOfPixelsPerTileStrip; j++)
-			{
-				switch (tiffDetails.bitsPerSample)
-				{
-				case (8):
-				{
-					char pixel[3][1];
-					stream.read(pixel[0], sizeof(pixel[0]));
-					stream.read(pixel[1], sizeof(pixel[1]));
-					stream.read(pixel[2], sizeof(pixel[2]));
-
-					std::cout << BytesToInt8(pixel[0]) << ", " << BytesToInt8(pixel[1]) << ", " << BytesToInt8(pixel[2]) << ", " << "\t";
-					if (j%tiffDetails.width == tiffDetails.width - 1)
-						std::cout << "Row end" << std::endl;
-				}
-				break;
-
-				case (16):
-				{
-					char pixel[3][2];
-					stream.read(pixel[0], sizeof(pixel[0]));
-					stream.read(pixel[1], sizeof(pixel[1]));
-					stream.read(pixel[2], sizeof(pixel[2]));
-
-					std::cout << BytesToInt16(pixel[0]) << ", " << BytesToInt16(pixel[1]) << ", " << BytesToInt16(pixel[2]) << ", " << "\t";
-					if (j%tiffDetails.width == 0)
-						std::cout << "Row end" << std::endl;
-				}
-				break;
-
-				case (32):
-				{
-					char pixel[3][4];
-					stream.read(pixel[0], sizeof(pixel[0]));
-					stream.read(pixel[1], sizeof(pixel[1]));
-					stream.read(pixel[2], sizeof(pixel[2]));
-
-					std::cout << BytesToInt32(pixel[0]) << ", " << BytesToInt32(pixel[1]) << ", " << BytesToInt32(pixel[2]) << ", " << "\t";
-					if (j%tiffDetails.width == 0)
-						std::cout << "Row end" << std::endl;
-				}
-				break;
-
-				default:
-					break;
-				}
-			}
+			ParseStripOrTileData(i);
 		}
 	}
 
+
+	//for (int i = 0; i < tiffDetails.height; i++)
+	//	bitMap.get()[i].DisplayArrayInCLI();
+
+	std::cout << "FINISHED!" << std::endl; //test
+	return true;
 }
 
