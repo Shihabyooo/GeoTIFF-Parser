@@ -124,10 +124,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Array2D.cpp" />
+    <ClCompile Include="Decompressor.cpp" />
+    <ClCompile Include="GeoTIFF_Parser.cpp" />
+    <ClCompile Include="GeoTIFF_Parser_Globals.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array2D.h" />
+    <ClInclude Include="Decompressor.h" />
+    <ClInclude Include="GeoTIFF_Parser.h" />
+    <ClInclude Include="GeoTIFF_Parser_Globals.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

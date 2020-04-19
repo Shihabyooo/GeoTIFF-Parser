@@ -21,9 +21,27 @@
     <ClCompile Include="Array2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GeoTIFF_Parser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Decompressor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeoTIFF_Parser_Globals.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array2D.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeoTIFF_Parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Decompressor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeoTIFF_Parser_Globals.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
