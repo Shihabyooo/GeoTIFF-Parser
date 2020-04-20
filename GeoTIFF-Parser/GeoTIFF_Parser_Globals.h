@@ -10,6 +10,11 @@ enum BitmapFormat
 	strips, tiles, undefined
 };
 
+enum RasterToModelTransformationMethod
+{
+	tieAndScale, matrix
+};
+
 struct TIFFDetails
 {
 public:
@@ -21,6 +26,8 @@ public:
 	int extraSampleType;
 	int sampleFormat;
 	int compression;
+
+	int noOfIFDs;
 
 	int photometricInterpretation;
 	int planarConfiguration;
@@ -37,9 +44,31 @@ public:
 	long int tileWidth;
 };
 
+struct GeoTIFFDetails
+{
+public:
+	short int rasterSpace; //0: undefined, 1: PixelIsArea, 2:PixelIsPoint, 32767: User Defined.
+	short int modelType; //0: Undefined or Unknown, 1: 2D Projected CRS, 2: Geographic 2D CRS, 3: Cartesian 3D CRS, 32767: User Defined.
+	RasterToModelTransformationMethod transformationMethod;
+	double tiePoints[3][2]; //Only used if transformationMethod is tieAndScale.
+	double pixelScale[3]; //XYZ scale. For XY, positive scale indicate increase in XY coord as raster space UV increase, negatives denote an inverse relation. Only used if transformationMethod is tieAndScale.
+
+	short int projectedCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Projected CRS Codes, 32767 is User Defined, 32768-65535 are private.
+	short int goedeticCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
+	short int verticalCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
+
+	std::string geotiffCitation = "";
+	std::string geodeticCRSCitation = "";
+	std::string projectedCRSCitation = "";
+	std::string verticalCRSCitation = "";
+
+
+	//TODO add parts relevant to User Defined CRSs (Section 7.5 of standard)
+};
+
 struct Tag
 {
-	short int tagID;
+	unsigned short int tagID;
 	short int fieldTypeID;
 	long int count;
 	long int offsetValue;
@@ -64,6 +93,7 @@ public:
 extern bool isBigEndian;
 extern std::ifstream stream;
 extern TIFFDetails tiffDetails;
+extern GeoTIFFDetails geoDetails;
 extern Array2D * bitMap;
 
 

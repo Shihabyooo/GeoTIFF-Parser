@@ -3,6 +3,7 @@
 bool isBigEndian;
 std::ifstream stream;
 TIFFDetails tiffDetails;
+GeoTIFFDetails geoDetails;
 Array2D * bitMap;
 
 

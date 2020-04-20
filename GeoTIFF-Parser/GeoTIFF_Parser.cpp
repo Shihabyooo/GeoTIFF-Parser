@@ -6,7 +6,7 @@ bool viewTagsInCLI = true;
 
 //functions
 
-std::string GetFieldDescription(short int tagID)
+std::string GetFieldDescription(unsigned short int tagID)
 {
 	std::string desc;
 
@@ -84,8 +84,62 @@ std::string GetFieldDescription(short int tagID)
 	case (328):
 		desc = "ConsecutiveBadFaxLines";
 		break;
+		//GeoTIFF tags
+	case (34735):
+		desc = "GeoKeyDirectoryTag";
+		break;
+	case (34736):
+		desc = "GeoDoubleParamsTag";
+		break;
+	case (34737):
+		desc = "GeoAsciiParamsTag";
+		break;
+	case (33550):
+		desc = "ModelPixelScaleTag";
+		break;
+	case (33922):
+		desc = "ModelTiepointTag";
+		break;
+	case (34264):
+		desc = "ModelTransformationTag";
+		break;
+		//GeoTIFF GeoKeys:
+	case (1025):
+		desc = "GTRasterTypeGeoKey";
+		break;
+	case (1024):
+		desc = "GTModelTypeGeoKey";
+		break;
+	case (3072):
+		desc = "ProjectedCRSGeoKey";
+		break;
+	case (2048):
+		desc = "GeodeticCRSGeoKey";
+		break;
+	case (4096):
+		desc = "VerticalGeoKey";
+		break;
+	case(1026) :
+		desc = "GTCitationGeoKey";
+	break;
+	case(2049):
+		desc = "GeodeticCitationGeoKey";
+		break;
+	case(3073):
+		desc = "ProjectedCitationGeoKey";
+		break;
+	case(4097):
+		desc = "VerticalCitationGeoKey";
+		break;
 
+		//Additional GeoTIFF-related Tags"
+	case (42113):
+		desc = "GDAL_NODATA";
+		break;
 		//Additional Tags:
+	case (339):
+		desc = "SampleFormat";
+		break;
 	case (315):
 		desc = "Artist";
 		break;
@@ -539,6 +593,8 @@ bool ParseStripOrTileData(int stripOrTileID)
 	return true;
 }
 
+
+//TODO add another argument for this function that takes an int targetIFD, and modify the related for-loop bellow to search for and only extract details for this IFD.
 bool LoadGeoTIFF(std::string filePath)
 {
 	stream.open(filePath, std::ios::binary | std::ios::in);
@@ -563,14 +619,15 @@ bool LoadGeoTIFF(std::string filePath)
 	{
 	case 'I':
 		isBigEndian = false;
-		std::cout << "Byte order set to little-endian" << std::endl;
+		std::cout << "Byte order set to little-endian." << std::endl;
 		break;
 	case 'M':
 		isBigEndian = true;
-		std::cout << "Byte order set to Big-endian" << std::endl;
+		std::cout << "Byte order set to Big-endian." << std::endl;
 		break;
 	default:
-		std::cout << "Could not determine the byte order of the file" << std::endl;
+		std::cout << "Could not determine the byte order of the file." << std::endl;
+		return false;
 		break;
 	}
 
@@ -578,6 +635,11 @@ bool LoadGeoTIFF(std::string filePath)
 	std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(word, sizeof(word));
 	std::cout << "Format version: " << BytesToInt16(word) << std::endl;
+	if (BytesToInt16(word) != 42)
+	{
+		std::cout << "ERROR! File header does not indicate a TIFF file. The answer to the universe was not found." << std::endl;
+		return false;
+	}
 
 	//check offset to first IFD (Image File Directory)
 	std::cout << "Current file loc: " << stream.tellg() << "\t";
@@ -592,10 +654,10 @@ bool LoadGeoTIFF(std::string filePath)
 	//check IFD header
 	std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(word, sizeof(word));
-	short int numberOfIFDEntries = BytesToInt16(word);
-	std::cout << "Number of IFD enteries: " << numberOfIFDEntries << std::endl;
+	tiffDetails.noOfIFDs = BytesToInt16(word);
+	std::cout << "Number of IFD enteries: " << tiffDetails.noOfIFDs << std::endl;
 
-	for (int i = 0; i < numberOfIFDEntries; i++)
+	for (int i = 0; i < tiffDetails.noOfIFDs; i++)
 	{
 		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
 
@@ -700,8 +762,6 @@ bool LoadGeoTIFF(std::string filePath)
 		bitMap[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
 	}
 
-
-
 	if (tiffDetails.planarConfiguration != 1)
 	{
 		std::cout << "ERROR! This reader cannot parse non-chunky (TIFF6.0 Planar Configuration other than 1) TIFF files." << std::endl;
@@ -716,13 +776,31 @@ bool LoadGeoTIFF(std::string filePath)
 		{
 			std::cout << "Data for strip no " << i << std::endl;
 			//stream.seekg(tiffDetails.tileStripOffset.get()[i]);
-
 			ParseStripOrTileData(i);
 		}
 	}
 
-
 	//for (int i = 0; i < tiffDetails.height; i++)
 	//	bitMap.get()[i].DisplayArrayInCLI();
+
+	for (int i = 0; i < tiffDetails.height; i++)
+		//bitMap[i].DisplayArrayInCLI();
+	{
+		for (int j = 0; j < bitMap[i].Rows(); j++)
+		{
+			for (int k = 0; k < bitMap[i].Columns(); k++)
+			{
+				if (k > 0)
+					std::cout << ",";
+				std::cout << bitMap[i][j][k];
+			}
+			std::cout << "\t";
+		}
+		std::cout << "[ROW_END]" << std::endl << std::endl;
+	}
+
+
+
+
 	return true;
 }
