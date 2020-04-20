@@ -455,6 +455,11 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
+void ProcessGeoKey(Tag * geoKeyDirectoryTag)
+{
+
+}
+
 void ProcessTag(Tag * tag)
 {
 	switch (tag->tagID)
@@ -519,6 +524,25 @@ void ProcessTag(Tag * tag)
 		break;
 	case (339):
 		tiffDetails.sampleFormat = GetFieldIntData(tag);
+		break;
+	case (34735):
+		//desc = "GeoKeyDirectoryTag";
+		ProcessGeoKey(tag);
+		break;
+	case (34736):
+		//desc = "GeoDoubleParamsTag";
+		break;
+	case (34737):
+		//desc = "GeoAsciiParamsTag";
+		break;
+	case (33550):
+		//desc = "ModelPixelScaleTag";
+		break;
+	case (33922):
+		//desc = "ModelTiepointTag";
+		break;
+	case (34264):
+		//desc = "ModelTransformationTag";
 		break;
 	default:
 		break;
@@ -594,7 +618,6 @@ bool ParseStripOrTileData(int stripOrTileID)
 }
 
 
-//TODO add another argument for this function that takes an int targetIFD, and modify the related for-loop bellow to search for and only extract details for this IFD.
 bool LoadGeoTIFF(std::string filePath)
 {
 	stream.open(filePath, std::ios::binary | std::ios::in);
@@ -645,19 +668,18 @@ bool LoadGeoTIFF(std::string filePath)
 	std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(dword, sizeof(dword));
 	long int firstIFDOffset = BytesToInt32(dword); //might need it later
-	std::cout << "First IFD offsett: " << firstIFDOffset << std::endl;
+	std::cout << "First IFD offset: " << firstIFDOffset << std::endl;
 
 	//seek to first IFD begining
 	stream.seekg(firstIFDOffset, stream.beg);
-	//stream.seekg(21, stream.beg);
 
 	//check IFD header
 	std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(word, sizeof(word));
-	tiffDetails.noOfIFDs = BytesToInt16(word);
-	std::cout << "Number of IFD enteries: " << tiffDetails.noOfIFDs << std::endl;
+	short int noOfTagsInIFD = BytesToInt16(word);
+	std::cout << "Number of IFD enteries: " << noOfTagsInIFD << std::endl;
 
-	for (int i = 0; i < tiffDetails.noOfIFDs; i++)
+	for (int i = 0; i < noOfTagsInIFD; i++)
 	{
 		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
 
@@ -686,7 +708,7 @@ bool LoadGeoTIFF(std::string filePath)
 			std::cout << "Current file loc: " << stream.tellg() << "\t";
 			std::cout << "Count: " << tag.get()->count << std::endl;
 			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Value offset: " << tag.get()->offsetValue << std::endl;
+			std::cout << "Value\\offset: " << tag.get()->offsetValue << std::endl;
 		}
 
 		ProcessTag(tag.get());
@@ -798,9 +820,6 @@ bool LoadGeoTIFF(std::string filePath)
 		}
 		std::cout << "[ROW_END]" << std::endl << std::endl;
 	}
-
-
-
 
 	return true;
 }

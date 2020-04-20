@@ -1,3 +1,9 @@
+//Currently only supports TIFF files with one image (IFD), as in this program will only parse the contents of the first image within the TIFF file, disregarding the rest.
+//Support for compressed TIFF files is not yet implemented.
+//Support for Tile-Bitmaped TIFF files is not yet implemented.
+
+
+
 #pragma once
 #include <iostream>
 #include <fstream>
@@ -11,6 +17,5 @@
 
 //variables
 extern bool viewTagsInCLI;
-
 
 bool LoadGeoTIFF(std::string filePath);
