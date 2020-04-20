@@ -4,6 +4,11 @@
 
 #include "GeoTIFF_Parser_Globals.h"
 
+enum DeflateBlockType
+{
+	noCompression, fixedHuffman, dynamicHuffman, unused
+};
+
 
 void ParseUncompressedStripOrTileData(int stripOrTileID);
 

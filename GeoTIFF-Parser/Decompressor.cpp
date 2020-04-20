@@ -4,22 +4,19 @@ void ParseUncompressedStripOrTileData(int stripOrTileID)
 {
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
 
-	//TODO add a check here that the bites per sample are either 8, 16 or 32
-
 	char ** pixel;
 	pixel = new char *[tiffDetails.samplesPerPixel];
 	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
 		pixel[i] = new char[tiffDetails.bitsPerSample / 8];
 
-	std::cout << "pixel buffer size: " << tiffDetails.samplesPerPixel << " x " << tiffDetails.bitsPerSample / 8 << std::endl;
+	// std::cout << "pixel buffer size: " << tiffDetails.samplesPerPixel << " x " << tiffDetails.bitsPerSample / 8 << std::endl; //test
 
 	for (int i = 0; i < tiffDetails.noOfPixelsPerTileStrip; i++)
 	{
 		int xCoord = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width);
 		int yCoord = i % tiffDetails.width;
 
-		std::cout << "coords: " << xCoord << ", " << yCoord << std::endl;
-
+		//std::cout << "coords: " << xCoord << ", " << yCoord << std::endl; //test
 
 		for (int j = 0; j < tiffDetails.samplesPerPixel; j++)
 		{
@@ -53,7 +50,7 @@ void ParseUncompressedStripOrTileData(int stripOrTileID)
 				bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
 				break;
 			}
-			std::cout << "Pixel Channel: " << j << ", value: " << bitMap[xCoord][yCoord][j] << std::endl; //test
+			//std::cout << "Pixel Channel: " << j << ", value: " << bitMap[xCoord][yCoord][j] << std::endl; //test
 		}
 
 	}
@@ -98,23 +95,55 @@ void ParseDeflateStripOrTileData(int stripOrTileID)
 
 
 	//check first block header (3 bits)
-	short int blockHeaderBit, blockType[2];
+	short int blockHeaderBit, blockTypeBits[2]; //in this blockTypeBits array, bits are stored RTL (i.e. blockTypeBits[0] is least significant)
+	DeflateBlockType blockType;
+	bool isLastBlock = false;
 
-	stream.read(byte, sizeof(byte));
+	while (!isLastBlock)
+	{
+		////read out the block header (read entire byte then extract 3-top bits.
+		//stream.read(byte, sizeof(byte));
+		//blockHeaderBit = ((unsigned char)byte[0] & 0x01);
+		//blockTypeBits[0] = ((unsigned char)byte[0] & 0x02) >> 1;
+		//blockTypeBits[1] = ((unsigned char)byte[0] & 0x04) >> 2;
 
-	//test
-	short int bits[8];
-	bits[0] = ((unsigned char)byte[0] & 0x01);
-	bits[1] = ((unsigned char)byte[0] & 0x02) >> 1;
-	bits[2] = ((unsigned char)byte[0] & 0x04) >> 2;
-	bits[3] = ((unsigned char)byte[0] & 0x08) >> 3;
-	bits[4] = ((unsigned char)byte[0] & 0x10) >> 4;
-	bits[5] = ((unsigned char)byte[0] & 0x20) >> 5;
-	bits[6] = ((unsigned char)byte[0] & 0x40) >> 6;
-	bits[7] = ((unsigned char)byte[0] & 0x80) >> 7;
-	std::cout << "bits: " << bits[7] << bits[6] << bits[5] << bits[4] << bits[3] << bits[2] << bits[1] << bits[0] << std::endl;
-	//endtest
+		//if (blockTypeBits[0] == 0 && blockTypeBits[1] == 0)
+		//	blockType = DeflateBlockType::noCompression;
+		//else if (blockTypeBits[0] == 1 && blockTypeBits[1] == 0)
+		//	blockType = DeflateBlockType::fixedHuffman;
+		//else if (blockTypeBits[0] == 0 && blockTypeBits[1] == 1)
+		//	blockType = DeflateBlockType::dynamicHuffman;
+		//else
+		//	blockType = DeflateBlockType::unused;
+		//
+		//if (blockHeaderBit == 1)
+		//	isLastBlock = true;
 
+		//std::string _bType = blockType == DeflateBlockType::noCompression ? "No Compression" : blockType == DeflateBlockType::fixedHuffman ? "Fixed Huffman" : blockType == DeflateBlockType::dynamicHuffman ? "Dynamic Huffman" : "Reserved";
+		//std::cout << "Block Type: " << _bType.c_str() << ", Final Block Bit: " << blockHeaderBit << std::endl;
+
+		//TODO uncomment the part above when you start working on this decompressor again.
+
+		//test
+		std::cout << "---------------------------------------------------" << std::endl;
+		for (int i = 0; i < 10; i++)
+		{
+			stream.read(byte, sizeof(byte));
+			short int bits[8];
+			bits[0] = ((unsigned char)byte[0] & 0x01);
+			bits[1] = ((unsigned char)byte[0] & 0x02) >> 1;
+			bits[2] = ((unsigned char)byte[0] & 0x04) >> 2;
+			bits[3] = ((unsigned char)byte[0] & 0x08) >> 3;
+			bits[4] = ((unsigned char)byte[0] & 0x10) >> 4;
+			bits[5] = ((unsigned char)byte[0] & 0x20) >> 5;
+			bits[6] = ((unsigned char)byte[0] & 0x40) >> 6;
+			bits[7] = ((unsigned char)byte[0] & 0x80) >> 7;
+			//std::cout << "bits: " << bits[7] << bits[6] << bits[5] << bits[4] << bits[3] << bits[2] << bits[1] << bits[0] << std::endl;
+			std::cout << "bits: " << bits[0] << bits[1] << bits[2] << bits[3] << bits[4] << bits[5] << bits[6] << bits[7] << std::endl;
+		}
+		isLastBlock = true;
+		std::cout << "---------------------------------------------------" << std::endl;
+	}
 
 
 	//test output
