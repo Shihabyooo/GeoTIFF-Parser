@@ -583,38 +583,69 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
+//
+//template <typename T>
+//T GetGeoKeyData(GeoKey * geoKey, T * dataArray, int valueOrderInKey = 0) //valueOrderInKey is used for GeoKeys that have count > 1. valueOrderInKey is the nth element of a Key's count.
+//{																			//default is zero for Keys with count = 1.
+//	T result;
+//	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
+//	{						//are of type short (not used here, but can cause issues) and that the count = 1 (so we return a single value)
+//		result = geoKey->offsetValue;
+//	}
+//	else
+//	{
+//		//Potential problem, since T * does not contain length, we cannot test that (geoKey->offsetValue + geoKey->count) < T.length(). If previously executed code does not guarantee that, this can trigger OOB read.
+//		//TODO solve this.
+//		result = dataArray[geoKey->offsetValue + valueOrderInKey];
+//	}
+//
+//	return result;
+//}
 
-template <class T>
-T GetGeoKeyData(GeoKey * geoKey, T * dataArray, int valueOrderInKey = 0) //valueOrderInKey is used for GeoKeys that have count > 1. valueOrderInKey is the nth element of a Key's count.
-{																			//default is zero for Keys with count = 1.
-	T result;
+
+short int GetGeoKeyIntData(GeoKey * geoKey, short int * dataArray, int valueOrderInKey = 0)
+{
+	short int result;
 	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
 	{						//are of type short (not used here, but can cause issues) and that the count = 1 (so we return a single value)
 		result = geoKey->offsetValue;
 	}
 	else
 	{
-		//Potential problem, since T * does not contain length, we cannot test that (geoKey->offsetValue + geoKey->count) < T.length(). If previously executed code does not guarantee that, this can trigger OOB read.
-		//TODO solve this.
+		result = dataArray[geoKey->offsetValue + valueOrderInKey];
+	}
+
+
+	std::cout << "++++GetGeoKeyIntData, returning for tagID: " << geoKey->keyID << " with " << result << std::endl;
+	return result;
+}
+
+double GetGeoKeyDoubleData(GeoKey * geoKey, double * dataArray, int valueOrderInKey = 0)
+{
+	short int result;
+	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
+	{						//are of type short (not used here, but can cause issues) and that the count = 1 (so we return a single value)
+		result = geoKey->offsetValue;
+	}
+	else
+	{
 		result = dataArray[geoKey->offsetValue + valueOrderInKey];
 	}
 
 	return result;
 }
 
-std::string ExtractAndMergeMultiASCIIValues(GeoKey * geoKey, std::string * dataArray)
+std::string ExtractAndMergeMultiASCIIValues(GeoKey * geoKey, char * dataArray)
 {
 	std::string result = "";
 
-	for (int i = geoKey->offsetValue; i < geoKey->offsetValue | geoKey->count; i++)
-	{
+	for (int i = geoKey->offsetValue; i < geoKey->offsetValue + geoKey->count; i++)
 		result += dataArray[i];
-		result += "\n";
-	}
+
+	result += '\0';
 
 	return result;
 }
-
 
 template <class T>
 void ProcessGeoKey(GeoKey * geoKey, T * dataArray = NULL)
@@ -622,43 +653,41 @@ void ProcessGeoKey(GeoKey * geoKey, T * dataArray = NULL)
 	switch (geoKey->keyID)
 	{
 	case(1024):  //GTModelTypeGeoKey
-		geoDetails.modelType = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.modelType = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(1025): //GTRasterTypeGeoKey
-		geoDetails.rasterSpace = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.rasterSpace = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(2048): //GeodeticCRSGeoKey
-		geoDetails.geodeticCRS = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.geodeticCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(3072): //GeodeticCRSGeoKey
-		geoDetails.projectedCRS = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.projectedCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(4096): //VerticalCRSGeoKey
-		geoDetails.verticalCRS = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.verticalCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
-
 
 	case(1026): //GTCitationGeoKey - ASCII
-
 		break;
 	case(2049): //GeodeticCitationGeoKey - ASCII
-		geoDetails.geodeticCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (std::string *)dataArray);
+		geoDetails.geodeticCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*)dataArray);
 		break;
 	case(3073): //ProjectedCitationGeoKey  - ASCII
-		geoDetails.projectedCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (std::string *) dataArray);
+		geoDetails.projectedCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*)dataArray);
 		break;
 	case(4097): //VerticalCitationGeoKey  - ASCII
-		geoDetails.verticalCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (std::string *) dataArray);
+		geoDetails.verticalCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*) dataArray);
 		break;
 
 	case(2057): //EllipsoidSemiMajorAxisGeoKey - Double
-		geoDetails.ellipsoidSemiMajorAxis = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.ellipsoidSemiMajorAxis = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
 		break;
 	case(2058): //EllipsoidSemiMajorAxisGeoKey - Double
-		geoDetails.ellipsoidSemiMinorAxis = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.ellipsoidSemiMinorAxis = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
 		break;
 	case(2059): //EllipsoidInvFlatteningGeoKey - Double
-		geoDetails.ellipsoidInvFlattening = GetGeoKeyData(geoKey, dataArray);
+		geoDetails.ellipsoidInvFlattening = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
 		break;
 
 	default:
@@ -735,21 +764,31 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 			GeoKey _key = { geoKey.get()->keyID, geoKey.get()->tiffTagLocation, geoKey.get()->count, geoKey.get()->offsetValue };
 			asciiParamsGeoKeys.push_back(_key);
 		}
+		else if (geoKey->tiffTagLocation == 0) //These keys have their data inside their own valueOffset bytes.
+		{
+			short int * _nullPtr = NULL; //Because compiler requires something to figure out type of T with..
+			ProcessGeoKey(geoKey.get(), _nullPtr);
+		}
+		else //shouldn't happen
+		{
+			std::cout << "WARNING! Found GeoKeys that can't be parsed according to GeoTIFF spec." << std::endl;
+		}
 	}
 
-
-
-
-	std::cout << "No of Int Data After GeoKeyDirectory: " << intParamsGeoKeys.size() << std::endl;
+	/*std::cout << "No of Int Data After GeoKeyDirectory: " << intParamsGeoKeys.size() << std::endl;
 	std::cout << "No of keys storing data in GeoDoubleParamsTag: " << doubleParamsGeoKeys.size() << std::endl;
-	std::cout << "No of keys storing data in GeoAsciiParamsTag: " << asciiParamsGeoKeys.size() << std::endl;
+	std::cout << "No of keys storing data in GeoAsciiParamsTag: " << asciiParamsGeoKeys.size() << std::endl;*/
 
 	if (intParamsGeoKeys.size() > 0) //this means there are data (short int) after the end of this tag (GeoKeyDirectory), we have to parse them and assign them to keys stored in intParamsGeoKeys.
 	{
-		std::unique_ptr<short int> intKeyData = std::unique_ptr<short int>(new short int[intParamsGeoKeys.size()]);
+		std::cout << "DEVWARNING! Current implementation lacks support for tags storing short values outside its valueOffset field" << std::endl;
+		//TODO finish implementing this!
 
+		for (std::vector<GeoKey>::iterator it = intParamsGeoKeys.begin(); it < intParamsGeoKeys.end(); ++it)
+		{
+			
+		}
 	}
-
 
 }
 
@@ -778,7 +817,7 @@ void ProcessTag(Tag * tag)
 
 		std::cout << "Result using GetFieldIntData() : " << GetFieldIntData(tag) << std::endl;//test
 	}
-	break;
+		break;
 	case (278): //rowsperstrip
 		tiffDetails.bitmapFormat = BitmapFormat::strips;
 		tiffDetails.rowsPerStrip = GetFieldIntData(tag);
@@ -799,7 +838,7 @@ void ProcessTag(Tag * tag)
 		tiffDetails.noOfTilesOrStrips = tag->count;
 		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
 	}
-	break;
+		break;
 	case (322): //tilewidth
 		tiffDetails.tileWidth = GetFieldIntData(tag);
 		break;
@@ -818,16 +857,16 @@ void ProcessTag(Tag * tag)
 	case (339):
 		tiffDetails.sampleFormat = GetFieldIntData(tag);
 		break;
-	case (34735):
+	case (34735): //GeoKeyDirectory
 		ProcessGeoKeyDirectory(tag);
 		break;
-	case (34736):
+	case (34736): //DoubleParamsGeoKey
 		if (doubleParamsGeoKeys.size() > 0)
 		{
 			//extract the params stored in this tag.
-			std::unique_ptr<double> doubleParamsData = std::unique_ptr<double> (new double[tag->count]);
+			std::unique_ptr<double> doubleParamsData = std::unique_ptr<double>(new double[tag->count]);
 			double buffer;
-			
+
 			stream.seekg(tag->offsetValue);
 			for (int i = 0; i < tag->count; i++)
 			{
@@ -842,17 +881,92 @@ void ProcessTag(Tag * tag)
 			}
 		}
 		break;
-	case (34737):
-		//desc = "GeoAsciiParamsTag";
+	case (34737): //ASCIIParamsGeoKey
+		if (asciiParamsGeoKeys.size() > 0)
+		{
+			//extract the params stored in this tag.
+			std::unique_ptr<char> asciiParamsData = std::unique_ptr<char>(new char[tag->count]);
+
+			stream.seekg(tag->offsetValue);
+
+			char buffer = ' ';
+			for (int i = 0; i < tag->count; i++)
+			{
+				stream.read(&buffer, sizeof(buffer));
+				asciiParamsData.get()[i] = buffer;
+			}
+
+			//Loop over keys stored in asciiParamsGeoKeys and process them.
+			for (std::vector<GeoKey>::iterator it = asciiParamsGeoKeys.begin(); it < asciiParamsGeoKeys.end(); ++it)
+				ProcessGeoKey(&(*it), asciiParamsData.get());
+		}
 		break;
-	case (33550):
-		//desc = "ModelPixelScaleTag";
+	case (33550): //ModelPixelScaleTag
+	{
+		if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+		{
+			std::cout << "WARNING! This GeoTIFF has both ModelTransformationTag and ModelPixelScaleTag set. This is against GeoTIFF spec." << std::endl;
+			std::cout << "Skipping processing ModelPixelScaleTag" << std::endl;
+			break;
+		}
+		else
+			geoDetails.transformationMethod = RasterToModelTransformationMethod::tieAndScale;
+
+		stream.seekg(tag->offsetValue);
+		double buffer;
+		for (int i = 0; i < 3; i++)
+		{
+			stream.read((char*)&buffer, sizeof(buffer));
+			geoDetails.pixelScale[i] = buffer;
+		}
+	}
 		break;
-	case (33922):
-		//desc = "ModelTiepointTag";
+	case (33922): //ModelTiepointTag
+	{
+		if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+		{
+			std::cout << "WARNING! This GeoTIFF has both ModelTransformationTag and ModelTiepointTag set. This is against GeoTIFF spec." << std::endl;
+			std::cout << "Skipping processing ModelTiepointTag" << std::endl;
+			break;
+		}
+		else
+			geoDetails.transformationMethod = RasterToModelTransformationMethod::tieAndScale;
+
+		stream.seekg(tag->offsetValue);
+		double buffer;
+		for (int i = 0; i < 2; i++)
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				stream.read((char*)&buffer, sizeof(buffer));
+				geoDetails.tiePoints[i][j] = buffer;
+			}
+		}
+	}
 		break;
-	case (34264):
-		//desc = "ModelTransformationTag";
+	case (34264): //ModelTransformationTag
+	{
+		if (geoDetails.transformationMethod == RasterToModelTransformationMethod::tieAndScale)
+		{
+			std::cout << "WARNING! This GeoTIFF has both ModelTransformationTag and ModelTiepointTag or ModePixelScaleTag set. This is against GeoTIFF spec." << std::endl;
+			std::cout << "Skipping processing ModelTransformationTag" << std::endl;
+			break;
+		}
+		else
+			geoDetails.transformationMethod = RasterToModelTransformationMethod::matrix;
+
+
+		stream.seekg(tag->offsetValue);
+		double buffer;
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+			{
+				stream.read((char*)&buffer, sizeof(buffer));
+				geoDetails.modelTransformationMatrix[i][j] = buffer;
+			}
+		}
+	}
 		break;
 	default:
 		break;
@@ -937,12 +1051,25 @@ void DisplayGeoTIFFDetailsOnCLI()
 	std::cout << "Model Type: " << geoDetails.modelType << std::endl;
 	std::cout << "Transformation Method: " << (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix? "Matrix" : "Tie and Scale") << std::endl;
 
-	std::cout << "Tie Points" << std::endl;
-	for (int i = 0; i < 3; i++)
-		std::cout << "\t" << geoDetails.tiePoints[i][0] << ",\t" << geoDetails.tiePoints[i][1] << std::endl;
-	
 
-	std::cout << "Pixel Scale: " << geoDetails.pixelScale[0] << " x " << geoDetails.pixelScale[1] << " x " << geoDetails.pixelScale[2] << std::endl;
+	if (geoDetails.transformationMethod == RasterToModelTransformationMethod::tieAndScale)
+	{
+		std::cout << "Tie Points" << std::endl;
+		for (int i = 0; i < 2; i++)
+			std::cout << "\t" << geoDetails.tiePoints[i][0] << ",  " << geoDetails.tiePoints[i][1] << ",  " << geoDetails.tiePoints[i][2] << std::endl;
+		std::cout << "Pixel Scale: " << geoDetails.pixelScale[0] << " x " << geoDetails.pixelScale[1] << " x " << geoDetails.pixelScale[2] << std::endl;
+	}
+	else if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+	{
+		std::cout << "Raster to Mode Transformation Matrix:" << std::endl;
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+				std::cout << geoDetails.modelTransformationMatrix[i][j] << "\t";
+			
+			std::cout << std::endl;
+		}
+	}
 
 	std::cout << "Projected CRS: " << geoDetails.projectedCRS << std::endl;
 	std::cout << "Geodetic CRS: " << geoDetails.geodeticCRS << std::endl;

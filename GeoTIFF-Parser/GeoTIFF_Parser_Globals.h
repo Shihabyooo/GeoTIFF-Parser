@@ -12,7 +12,7 @@ enum BitmapFormat
 
 enum RasterToModelTransformationMethod
 {
-	tieAndScale, matrix
+	tieAndScale, matrix, unknown
 };
 
 struct TIFFDetails
@@ -49,9 +49,10 @@ struct GeoTIFFDetails
 public:
 	unsigned short int rasterSpace; //0: undefined, 1: PixelIsArea, 2:PixelIsPoint, 32767: User Defined.
 	unsigned short int modelType; //0: Undefined or Unknown, 1: 2D Projected CRS, 2: Geographic 2D CRS, 3: Cartesian 3D CRS, 32767: User Defined.
-	RasterToModelTransformationMethod transformationMethod;
-	double tiePoints[3][2]; //Only used if transformationMethod is tieAndScale.
+	RasterToModelTransformationMethod transformationMethod = RasterToModelTransformationMethod::unknown;
+	double tiePoints[2][3]; //Only used if transformationMethod is tieAndScale.
 	double pixelScale[3]; //XYZ scale. For XY, positive scale indicate increase in XY coord as raster space UV increase, negatives denote an inverse relation. Only used if transformationMethod is tieAndScale.
+	double modelTransformationMatrix[4][4]; // A 4x4 transformation matrix used to transform from raster to model space, when transformationMethod is matrix.
 
 	unsigned short int projectedCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Projected CRS Codes, 32767 is User Defined, 32768-65535 are private.
 	unsigned short int geodeticCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
