@@ -47,23 +47,31 @@ public:
 struct GeoTIFFDetails
 {
 public:
-	short int rasterSpace; //0: undefined, 1: PixelIsArea, 2:PixelIsPoint, 32767: User Defined.
-	short int modelType; //0: Undefined or Unknown, 1: 2D Projected CRS, 2: Geographic 2D CRS, 3: Cartesian 3D CRS, 32767: User Defined.
+	unsigned short int rasterSpace; //0: undefined, 1: PixelIsArea, 2:PixelIsPoint, 32767: User Defined.
+	unsigned short int modelType; //0: Undefined or Unknown, 1: 2D Projected CRS, 2: Geographic 2D CRS, 3: Cartesian 3D CRS, 32767: User Defined.
 	RasterToModelTransformationMethod transformationMethod;
 	double tiePoints[3][2]; //Only used if transformationMethod is tieAndScale.
 	double pixelScale[3]; //XYZ scale. For XY, positive scale indicate increase in XY coord as raster space UV increase, negatives denote an inverse relation. Only used if transformationMethod is tieAndScale.
 
-	short int projectedCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Projected CRS Codes, 32767 is User Defined, 32768-65535 are private.
-	short int goedeticCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
-	short int verticalCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
+	unsigned short int projectedCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Projected CRS Codes, 32767 is User Defined, 32768-65535 are private.
+	unsigned short int geodeticCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
+	unsigned short int verticalCRS; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
 
 	std::string geotiffCitation = "";
 	std::string geodeticCRSCitation = "";
 	std::string projectedCRSCitation = "";
 	std::string verticalCRSCitation = "";
 
+	//ellipsoid data
+	unsigned short int ellipsoid; //32767 indicate user defined ellipsoid, in which case ellipsoidSemiMajorAxis and either of ellipsoidSemiMinorAxis or ellipsoidInvFlattening must be populated
+	double ellipsoidSemiMajorAxis;
+	double ellipsoidSemiMinorAxis;
+	double ellipsoidInvFlattening;
 
-	//TODO add parts relevant to User Defined CRSs (Section 7.5 of standard)
+	//vertical datum
+	unsigned short int verticalDatum; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
+
+	//TODO add remaining parts relevant to User Defined CRSs (Section 7.5 of standard)
 };
 
 struct Tag
@@ -72,6 +80,8 @@ struct Tag
 	unsigned short int fieldTypeID;
 	unsigned long int count;
 	unsigned long int offsetValue;
+
+	unsigned long int tagLocationOnFile; //location of the tag inside the file, this isn't usefull for TIFF parsing, but used in GeoTIFF's geokey parsing.
 };
 
 struct GeoKey

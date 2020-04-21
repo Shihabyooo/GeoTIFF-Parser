@@ -2,10 +2,16 @@
 
 //variables
 bool viewTagsInCLI = true;
+//int noOfDoubleParamsGeoKeys = 0;
+//int noOfASCIIParamsGeoKeys = 0;
+//std::unique_ptr<GeoKey[]> doubleParamsGeoKeys;
+//std::unique_ptr<GeoKey[]> asciiParamsGeoKeys;
+std::vector<GeoKey> intParamsGeoKeys;
+std::vector<GeoKey> doubleParamsGeoKeys;
+std::vector<GeoKey> asciiParamsGeoKeys;
 
 
 //functions
-
 //TODO replace GetFieldDescription() and GetGeoKeyDescription with fixed 2D array (or any container of pairs with fast random access) hardcoded into a header file, and have those function only retrieve from those containers.
 std::string GetFieldDescription(unsigned short int tagID)
 {
@@ -577,10 +583,84 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
-void ProcessGeoKey(GeoKey * geoKey)
+
+template <class T>
+T GetGeoKeyData(GeoKey * geoKey, T * dataArray, int valueOrderInKey = 0) //valueOrderInKey is used for GeoKeys that have count > 1. valueOrderInKey is the nth element of a Key's count.
+{																			//default is zero for Keys with count = 1.
+	T result;
+	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
+	{						//are of type short (not used here, but can cause issues) and that the count = 1 (so we return a single value)
+		result = geoKey->offsetValue;
+	}
+	else
+	{
+		//Potential problem, since T * does not contain length, we cannot test that (geoKey->offsetValue + geoKey->count) < T.length(). If previously executed code does not guarantee that, this can trigger OOB read.
+		//TODO solve this.
+		result = dataArray[geoKey->offsetValue + valueOrderInKey];
+	}
+
+	return result;
+}
+
+std::string ExtractAndMergeMultiASCIIValues(GeoKey * geoKey, std::string * dataArray)
+{
+	std::string result = "";
+
+	for (int i = geoKey->offsetValue; i < geoKey->offsetValue | geoKey->count; i++)
+	{
+		result += dataArray[i];
+		result += "\n";
+	}
+
+	return result;
+}
+
+
+template <class T>
+void ProcessGeoKey(GeoKey * geoKey, T * dataArray = NULL)
 {
 	switch (geoKey->keyID)
 	{
+	case(1024):  //GTModelTypeGeoKey
+		geoDetails.modelType = GetGeoKeyData(geoKey, dataArray);
+		break;
+	case(1025): //GTRasterTypeGeoKey
+		geoDetails.rasterSpace = GetGeoKeyData(geoKey, dataArray);
+		break;
+	case(2048): //GeodeticCRSGeoKey
+		geoDetails.geodeticCRS = GetGeoKeyData(geoKey, dataArray);
+		break;
+	case(3072): //GeodeticCRSGeoKey
+		geoDetails.projectedCRS = GetGeoKeyData(geoKey, dataArray);
+		break;
+	case(4096): //VerticalCRSGeoKey
+		geoDetails.verticalCRS = GetGeoKeyData(geoKey, dataArray);
+		break;
+
+
+	case(1026): //GTCitationGeoKey - ASCII
+
+		break;
+	case(2049): //GeodeticCitationGeoKey - ASCII
+		geoDetails.geodeticCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (std::string *)dataArray);
+		break;
+	case(3073): //ProjectedCitationGeoKey  - ASCII
+		geoDetails.projectedCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (std::string *) dataArray);
+		break;
+	case(4097): //VerticalCitationGeoKey  - ASCII
+		geoDetails.verticalCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (std::string *) dataArray);
+		break;
+
+	case(2057): //EllipsoidSemiMajorAxisGeoKey - Double
+		geoDetails.ellipsoidSemiMajorAxis = GetGeoKeyData(geoKey, dataArray);
+		break;
+	case(2058): //EllipsoidSemiMajorAxisGeoKey - Double
+		geoDetails.ellipsoidSemiMinorAxis = GetGeoKeyData(geoKey, dataArray);
+		break;
+	case(2059): //EllipsoidInvFlatteningGeoKey - Double
+		geoDetails.ellipsoidInvFlattening = GetGeoKeyData(geoKey, dataArray);
+		break;
+
 	default:
 		break;
 	}
@@ -591,10 +671,8 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 	std::cout << "Processing geoKeys." << std::endl;
 	stream.seekg(geoKeyDirectoryTag->offsetValue, stream.beg);
 
-	//char byte[1];
 	char word[2];
-	char dword[4];
-	//char qword[8];
+	//char dword[4];
 	unsigned short int keyDirectoryVersion, keyRevision, minorRevision, numberOfKeys;
 
 	stream.read(word, sizeof(word));
@@ -616,6 +694,7 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 	for (int i = 0; i < numberOfKeys; i++)
 	{
 		std::unique_ptr<GeoKey> geoKey = std::unique_ptr<GeoKey>(new GeoKey);
+
 		//-----------------------------------------
 		stream.read(word, sizeof(word));
 		geoKey.get()->keyID = BytesToInt16(word);
@@ -629,22 +708,48 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 		stream.read(word, sizeof(word));
 		geoKey.get()->offsetValue = BytesToInt32(word);
 
+
 		if (viewTagsInCLI)
 		{
 			std::cout << "-----------------------------------------------------" << std::endl;
 			std::cout << "Tag loop: " << i << std::endl;
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Field identifying tag: " << geoKey.get()->keyID << " -- ";
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Field identifying tag: " << geoKey.get()->keyID << " -- ";
 			GetGeoKeyDescription(geoKey.get()->keyID);
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Field type ID: " << geoKey.get()->tiffTagLocation << std::endl;
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Count: " << geoKey.get()->count << std::endl;
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Value\\offset: " << geoKey.get()->offsetValue << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t" <<"TIFF Tag Location: " << geoKey.get()->tiffTagLocation << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Count: " << geoKey.get()->count << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Value\\offset: " << geoKey.get()->offsetValue << std::endl;
 		}
-		ProcessGeoKey(geoKey.get());
+
+		if (geoKey->tiffTagLocation == geoKeyDirectoryTag->tagLocationOnFile) //means data are stored at end of GeoKeyDirectory (as short ints array).
+		{
+			GeoKey _key = { geoKey.get()->keyID, geoKey.get()->tiffTagLocation, geoKey.get()->count, geoKey.get()->offsetValue };
+			intParamsGeoKeys.push_back(_key);
+		}
+		else if (geoKey->tiffTagLocation == 34736) //means data are stored in GeoDoubleParamsTag
+		{
+			GeoKey _key = {geoKey.get()->keyID, geoKey.get()->tiffTagLocation, geoKey.get()->count, geoKey.get()->offsetValue };
+			doubleParamsGeoKeys.push_back(_key);
+		}
+		else if (geoKey->tiffTagLocation == 34737) //means data are stored in GeoAsciiParamsTag
+		{
+			GeoKey _key = { geoKey.get()->keyID, geoKey.get()->tiffTagLocation, geoKey.get()->count, geoKey.get()->offsetValue };
+			asciiParamsGeoKeys.push_back(_key);
+		}
 	}
+
+
+
+
+	std::cout << "No of Int Data After GeoKeyDirectory: " << intParamsGeoKeys.size() << std::endl;
+	std::cout << "No of keys storing data in GeoDoubleParamsTag: " << doubleParamsGeoKeys.size() << std::endl;
+	std::cout << "No of keys storing data in GeoAsciiParamsTag: " << asciiParamsGeoKeys.size() << std::endl;
+
+	if (intParamsGeoKeys.size() > 0) //this means there are data (short int) after the end of this tag (GeoKeyDirectory), we have to parse them and assign them to keys stored in intParamsGeoKeys.
+	{
+		std::unique_ptr<short int> intKeyData = std::unique_ptr<short int>(new short int[intParamsGeoKeys.size()]);
+
+	}
+
 
 }
 
@@ -714,11 +819,28 @@ void ProcessTag(Tag * tag)
 		tiffDetails.sampleFormat = GetFieldIntData(tag);
 		break;
 	case (34735):
-		//desc = "GeoKeyDirectoryTag";
 		ProcessGeoKeyDirectory(tag);
 		break;
 	case (34736):
-		//desc = "GeoDoubleParamsTag";
+		if (doubleParamsGeoKeys.size() > 0)
+		{
+			//extract the params stored in this tag.
+			std::unique_ptr<double> doubleParamsData = std::unique_ptr<double> (new double[tag->count]);
+			double buffer;
+			
+			stream.seekg(tag->offsetValue);
+			for (int i = 0; i < tag->count; i++)
+			{
+				stream.read((char*)&buffer, sizeof(buffer));
+				doubleParamsData.get()[i] = buffer;
+			}
+
+			//Loop over keys stored in doubleParamsGeoKeys and process them.
+			for (std::vector<GeoKey>::iterator it = doubleParamsGeoKeys.begin(); it < doubleParamsGeoKeys.end(); ++it)
+			{
+				ProcessGeoKey(&(*it), doubleParamsData.get());
+			}
+		}
 		break;
 	case (34737):
 		//desc = "GeoAsciiParamsTag";
@@ -805,6 +927,39 @@ bool ParseStripOrTileData(int stripOrTileID)
 	return true;
 }
 
+void DisplayGeoTIFFDetailsOnCLI()
+{
+	std::cout << "=======================================================================================" << std::endl;
+	std::cout << "/t/tGeoTIFF Details" << std::endl;
+	std::cout << "=======================================================================================" << std::endl;
+
+	std::cout << "Raster Space: " << geoDetails.rasterSpace << std::endl;
+	std::cout << "Model Type: " << geoDetails.modelType << std::endl;
+	std::cout << "Transformation Method: " << (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix? "Matrix" : "Tie and Scale") << std::endl;
+
+	std::cout << "Tie Points" << std::endl;
+	for (int i = 0; i < 3; i++)
+		std::cout << "\t" << geoDetails.tiePoints[i][0] << ",\t" << geoDetails.tiePoints[i][1] << std::endl;
+	
+
+	std::cout << "Pixel Scale: " << geoDetails.pixelScale[0] << " x " << geoDetails.pixelScale[1] << " x " << geoDetails.pixelScale[2] << std::endl;
+
+	std::cout << "Projected CRS: " << geoDetails.projectedCRS << std::endl;
+	std::cout << "Geodetic CRS: " << geoDetails.geodeticCRS << std::endl;
+	std::cout << "Vertical CRS: " << geoDetails.verticalCRS << std::endl;
+
+	std::cout << "GeoTIFF Citation: " << geoDetails.geotiffCitation.c_str() << std::endl;
+	std::cout << "Geodetic CRS Citation: " << geoDetails.geodeticCRSCitation.c_str() << std::endl;
+	std::cout << "Projected CRS Citation: " << geoDetails.projectedCRSCitation.c_str() << std::endl;
+	std::cout << "Vertical CRS Citation: " << geoDetails.verticalCRSCitation.c_str() << std::endl;
+
+	std::cout << "Ellipsoid: " << geoDetails.ellipsoid << std::endl;
+	std::cout << "Ellispod Semi Major Axis: " << geoDetails.ellipsoidSemiMajorAxis << std::endl;
+	std::cout << "Ellipsoid Semi Minor Axis: " << geoDetails.ellipsoidSemiMinorAxis << std::endl;
+	std::cout << "Ellipsoid Inverse Flattening: " << geoDetails.ellipsoidInvFlattening << std::endl;
+
+	std::cout << "Vertical Datum: " << geoDetails.verticalDatum << std::endl;
+}
 
 bool LoadGeoTIFF(std::string filePath)
 {
@@ -873,7 +1028,8 @@ bool LoadGeoTIFF(std::string filePath)
 	{
 		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
 
-		stream.seekg(endOfLastTag);
+		stream.seekg(endOfLastTag); //in case the stream position was changed in ProcessTag() bellow, return to the location at the end of the last tag = begining of new tag.
+		tag->tagLocationOnFile = stream.tellg();
 		//-----------------------------------------
 		stream.read(word, sizeof(word));
 		tag.get()->tagID = BytesToInt16(word);
@@ -891,15 +1047,11 @@ bool LoadGeoTIFF(std::string filePath)
 		{
 			std::cout << "===================================================================" << std::endl;
 			std::cout << "Tag loop: " << i << std::endl;
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Field identifying tag: " << tag.get()->tagID << " -- ";
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Field identifying tag: " << tag.get()->tagID << " -- ";
 			GetFieldDescription(tag.get()->tagID);
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Field type ID: " << tag.get()->fieldTypeID << " -- " << GetType(tag.get()->fieldTypeID).description.c_str() << std::endl;
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Count: " << tag.get()->count << std::endl;
-			std::cout << "Current file loc: " << stream.tellg() << "\t";
-			std::cout << "Value\\offset: " << tag.get()->offsetValue << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Field type ID: " << tag.get()->fieldTypeID << " -- " << GetType(tag.get()->fieldTypeID).description.c_str() << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Count: " << tag.get()->count << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Value\\offset: " << tag.get()->offsetValue << std::endl;
 		}
 		endOfLastTag = stream.tellg();
 
@@ -1012,6 +1164,8 @@ bool LoadGeoTIFF(std::string filePath)
 	//	}
 	//	std::cout << "[ROW_END]" << std::endl << std::endl;
 	//}
+
+	DisplayGeoTIFFDetailsOnCLI();
 
 	return true;
 }
