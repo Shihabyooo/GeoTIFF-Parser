@@ -69,9 +69,17 @@ public:
 struct Tag
 {
 	unsigned short int tagID;
-	short int fieldTypeID;
-	long int count;
-	long int offsetValue;
+	unsigned short int fieldTypeID;
+	unsigned long int count;
+	unsigned long int offsetValue;
+};
+
+struct GeoKey
+{
+	unsigned short int keyID;
+	unsigned short int tiffTagLocation; //if ==0, then offsetVale contains the value (of type short int) and count is implied to be = 1.
+	unsigned short int count;
+	unsigned short int offsetValue;
 };
 
 struct Type

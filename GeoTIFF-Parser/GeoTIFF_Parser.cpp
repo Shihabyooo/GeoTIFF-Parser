@@ -6,6 +6,7 @@ bool viewTagsInCLI = true;
 
 //functions
 
+//TODO replace GetFieldDescription() and GetGeoKeyDescription with fixed 2D array (or any container of pairs with fast random access) hardcoded into a header file, and have those function only retrieve from those containers.
 std::string GetFieldDescription(unsigned short int tagID)
 {
 	std::string desc;
@@ -102,34 +103,6 @@ std::string GetFieldDescription(unsigned short int tagID)
 		break;
 	case (34264):
 		desc = "ModelTransformationTag";
-		break;
-		//GeoTIFF GeoKeys:
-	case (1025):
-		desc = "GTRasterTypeGeoKey";
-		break;
-	case (1024):
-		desc = "GTModelTypeGeoKey";
-		break;
-	case (3072):
-		desc = "ProjectedCRSGeoKey";
-		break;
-	case (2048):
-		desc = "GeodeticCRSGeoKey";
-		break;
-	case (4096):
-		desc = "VerticalGeoKey";
-		break;
-	case(1026) :
-		desc = "GTCitationGeoKey";
-	break;
-	case(2049):
-		desc = "GeodeticCitationGeoKey";
-		break;
-	case(3073):
-		desc = "ProjectedCitationGeoKey";
-		break;
-	case(4097):
-		desc = "VerticalCitationGeoKey";
 		break;
 
 		//Additional GeoTIFF-related Tags"
@@ -232,6 +205,155 @@ std::string GetFieldDescription(unsigned short int tagID)
 		break;
 	default:
 		desc = "Not yet defined or unknown";
+		break;
+	}
+	std::cout << desc.c_str() << std::endl;
+	return desc;
+}
+
+std::string GetGeoKeyDescription(unsigned short int keyID)
+{
+	std::string desc;
+
+	switch (keyID)
+	{
+	case (1025):
+		desc = "GTRasterTypeGeoKey";
+		break;
+	case (1024):
+		desc = "GTModelTypeGeoKey";
+		break;
+	case (3072):
+		desc = "ProjectedCRSGeoKey";
+		break;
+	case (2048):
+		desc = "GeodeticCRSGeoKey";
+		break;
+	case (4096):
+		desc = "VerticalGeoKey";
+		break;
+	case(1026):
+		desc = "GTCitationGeoKey";
+		break;
+	case(2049):
+		desc = "GeodeticCitationGeoKey";
+		break;
+	case(3073):
+		desc = "ProjectedCitationGeoKey";
+		break;
+	case(4097):
+		desc = "VerticalCitationGeoKey";
+		break;
+	case(2054):
+		desc = "GeogAngularUnitsGeoKey";
+		break;
+	case(2060):
+		desc = "GeogAzimuthUnitsGeoKey";
+		break;
+	case(2052):
+		desc = "GeogLinearUnitsGeoKey";
+		break;
+	case(3076):
+		desc = "ProjLinearUnitsGeoKey";
+		break;
+	case(4099):
+		desc = "VerticalUnitsGeoKey";
+		break;
+	case(2057):
+		desc = "EllipsoidSemiMajorAxisGeoKey";
+		break;
+	case(2055):
+		desc = "GeoAngularUnitSizeGeoKey";
+		break;
+	case(2053):
+		desc = "GeogLinearUnitSizeGeoKey";
+		break;
+	case(3077):
+		desc = "ProjLinearUnitSizeGeoKey";
+		break;
+	case(2050):
+		desc = "GeodeticDatumGeoKey";
+		break;
+	case(2051):
+		desc = "PrimeMeridianGeoKey";
+		break;
+	case(2061):
+		desc = "PrimeMeridianLongitudeGeoKey";
+		break;
+	case(2056):
+		desc = "EllipsoidGeoKey";
+		break;
+	case(2058):
+		desc = "EllipsoidSemiMinorAxisGeoKey";
+		break;
+	case(2059):
+		desc = "EllipsoidInvFlatteningGeoKey";
+		break;
+	case(4098):
+		desc = "VerticalDatumGeoKey";
+		break;
+	case(3074):
+		desc = "ProjectionGeoKey";
+		break;
+	case(3075):
+		desc = "ProjMethodGeoKey";
+		break;
+	case(3078):
+		desc = "ProjStdParallel1GeoKey";
+		break;
+	case(3079):
+		desc = "ProjStdParallel2GeoKey";
+		break;
+	case(3080):
+		desc = "ProjNatOriginLongGeoKey";
+		break;
+	case(3081):
+		desc = "ProjNatOriginLatGeoKey";
+		break;
+	case(3084):
+		desc = "ProjFalseOriginLongGeoKey";
+		break;
+	case(3085):
+		desc = "ProjFalseOriginLatGeoKey";
+		break;
+	case(3088):
+		desc = "ProjCenterLongGeoKey";
+		break;
+	case(3089):
+		desc = "ProjCenterLatGeoKey";
+		break;
+	case(3095):
+		desc = "ProjStraightVertPoleLongGeoKey";
+		break;
+	case(3094):
+		desc = "ProjAzimuthAngleGeoKey";
+		break;
+	case(3082):
+		desc = "ProjFalseEastingGeoKey";
+		break;
+	case(3083):
+		desc = "ProjFalseNorthingGeoKey";
+		break;
+	case(3086):
+		desc = "ProjFalseOriginEastingGeoKey";
+		break;
+	case(3087):
+		desc = "ProjFalseOriginNorthingGeoKey";
+		break;
+	case(3090):
+		desc = "ProjCenterEastingGeoKey";
+		break;
+	case(3091):
+		desc = "ProjCenterNorthingGeoKey";
+		break;
+	case(3092):
+		desc = "ProjScaleAtNatOriginGeoKey";
+		break;
+	case(3093):
+		desc = "ProjScaleAtCenterGeoKey";
+		break;
+	default:
+		desc = "Unknown or Undefined GeoKey";
 		break;
 	}
 	std::cout << desc.c_str() << std::endl;
@@ -455,8 +577,74 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
-void ProcessGeoKey(Tag * geoKeyDirectoryTag)
+void ProcessGeoKey(GeoKey * geoKey)
 {
+	switch (geoKey->keyID)
+	{
+	default:
+		break;
+	}
+}
+
+void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
+{
+	std::cout << "Processing geoKeys." << std::endl;
+	stream.seekg(geoKeyDirectoryTag->offsetValue, stream.beg);
+
+	//char byte[1];
+	char word[2];
+	char dword[4];
+	//char qword[8];
+	unsigned short int keyDirectoryVersion, keyRevision, minorRevision, numberOfKeys;
+
+	stream.read(word, sizeof(word));
+	keyDirectoryVersion = BytesToInt16(word);
+	stream.read(word, sizeof(word));
+	keyRevision = BytesToInt16(word);
+	stream.read(word, sizeof(word));
+	minorRevision = BytesToInt16(word);
+	stream.read(word, sizeof(word));
+	numberOfKeys = BytesToInt16(word);
+
+	std::cout << "Key Directory Version: " << keyDirectoryVersion << " -- " << std::endl;
+	std::cout << "Key Revision: " << keyRevision << " -- " << std::endl;
+	std::cout << "Minor Revision: " << minorRevision << " -- " << std::endl;
+	std::cout << "Number of Keys: " << numberOfKeys << " -- " << std::endl;
+
+	//TODO add a check here to make sure versions match the ones adopted in this code. Else stop execution of remainin of program (a universal bool and int for error code that LoadTIFF() checks after processing tags? Throw Exception?)
+
+	for (int i = 0; i < numberOfKeys; i++)
+	{
+		std::unique_ptr<GeoKey> geoKey = std::unique_ptr<GeoKey>(new GeoKey);
+		//-----------------------------------------
+		stream.read(word, sizeof(word));
+		geoKey.get()->keyID = BytesToInt16(word);
+		//-----------------------------------------
+		stream.read(word, sizeof(word));
+		geoKey.get()->tiffTagLocation = BytesToInt16(word);
+		//-----------------------------------------
+		stream.read(word, sizeof(word));
+		geoKey.get()->count = BytesToInt32(word);
+		//-----------------------------------------
+		stream.read(word, sizeof(word));
+		geoKey.get()->offsetValue = BytesToInt32(word);
+
+		if (viewTagsInCLI)
+		{
+			std::cout << "-----------------------------------------------------" << std::endl;
+			std::cout << "Tag loop: " << i << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Field identifying tag: " << geoKey.get()->keyID << " -- ";
+			GetGeoKeyDescription(geoKey.get()->keyID);
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Field type ID: " << geoKey.get()->tiffTagLocation << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Count: " << geoKey.get()->count << std::endl;
+			std::cout << "Current file loc: " << stream.tellg() << "\t";
+			std::cout << "Value\\offset: " << geoKey.get()->offsetValue << std::endl;
+		}
+		ProcessGeoKey(geoKey.get());
+	}
 
 }
 
@@ -527,7 +715,7 @@ void ProcessTag(Tag * tag)
 		break;
 	case (34735):
 		//desc = "GeoKeyDirectoryTag";
-		ProcessGeoKey(tag);
+		ProcessGeoKeyDirectory(tag);
 		break;
 	case (34736):
 		//desc = "GeoDoubleParamsTag";
@@ -679,10 +867,13 @@ bool LoadGeoTIFF(std::string filePath)
 	short int noOfTagsInIFD = BytesToInt16(word);
 	std::cout << "Number of IFD enteries: " << noOfTagsInIFD << std::endl;
 
+	unsigned long int endOfLastTag = stream.tellg(); //Because ProcessTag() may modify the position in the stream and is called at end of loop, any further reading of tags wouldn't be correct.
+													//So, we cache the position of the tag end before we call ProcessTag()
 	for (int i = 0; i < noOfTagsInIFD; i++)
 	{
 		std::unique_ptr<Tag> tag = std::unique_ptr<Tag>(new Tag);
 
+		stream.seekg(endOfLastTag);
 		//-----------------------------------------
 		stream.read(word, sizeof(word));
 		tag.get()->tagID = BytesToInt16(word);
@@ -710,6 +901,7 @@ bool LoadGeoTIFF(std::string filePath)
 			std::cout << "Current file loc: " << stream.tellg() << "\t";
 			std::cout << "Value\\offset: " << tag.get()->offsetValue << std::endl;
 		}
+		endOfLastTag = stream.tellg();
 
 		ProcessTag(tag.get());
 	}
@@ -805,21 +997,21 @@ bool LoadGeoTIFF(std::string filePath)
 	//for (int i = 0; i < tiffDetails.height; i++)
 	//	bitMap.get()[i].DisplayArrayInCLI();
 
-	for (int i = 0; i < tiffDetails.height; i++)
-		//bitMap[i].DisplayArrayInCLI();
-	{
-		for (int j = 0; j < bitMap[i].Rows(); j++)
-		{
-			for (int k = 0; k < bitMap[i].Columns(); k++)
-			{
-				if (k > 0)
-					std::cout << ",";
-				std::cout << bitMap[i][j][k];
-			}
-			std::cout << "\t";
-		}
-		std::cout << "[ROW_END]" << std::endl << std::endl;
-	}
+	//for (int i = 0; i < tiffDetails.height; i++)
+	//	//bitMap[i].DisplayArrayInCLI();
+	//{
+	//	for (int j = 0; j < bitMap[i].Rows(); j++)
+	//	{
+	//		for (int k = 0; k < bitMap[i].Columns(); k++)
+	//		{
+	//			if (k > 0)
+	//				std::cout << ",";
+	//			std::cout << bitMap[i][j][k];
+	//		}
+	//		std::cout << "\t";
+	//	}
+	//	std::cout << "[ROW_END]" << std::endl << std::endl;
+	//}
 
 	return true;
 }
