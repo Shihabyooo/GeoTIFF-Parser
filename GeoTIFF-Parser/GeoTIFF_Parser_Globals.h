@@ -82,6 +82,7 @@ struct Tag
 	unsigned long int count;
 	unsigned long int offsetValue;
 
+	//TODO tagLocationOnFile has no more use. Remove it and its references.
 	unsigned long int tagLocationOnFile; //location of the tag inside the file, this isn't usefull for TIFF parsing, but used in GeoTIFF's geokey parsing.
 };
 
@@ -113,7 +114,7 @@ extern bool isBigEndian;
 extern std::ifstream stream;
 extern TIFFDetails tiffDetails;
 extern GeoTIFFDetails geoDetails;
-extern Array2D * bitMap;
+//extern Array2D * bitMap;
 
 
 //Functions

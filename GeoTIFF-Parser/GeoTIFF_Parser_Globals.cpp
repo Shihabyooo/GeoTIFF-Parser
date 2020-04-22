@@ -4,10 +4,10 @@ bool isBigEndian;
 std::ifstream stream;
 TIFFDetails tiffDetails;
 GeoTIFFDetails geoDetails;
-Array2D * bitMap;
+//Array2D * bitMap;
 
 
-long int BytesToInt32(const char bytes[4])//, bool _isBigEndian)
+long int BytesToInt32(const char bytes[4])
 {
 	if (isBigEndian)
 		return (((unsigned char)bytes[0] << 24) | ((unsigned char)bytes[1] << 16) | ((unsigned char)bytes[2] << 8) | (unsigned char)bytes[3]);
@@ -15,7 +15,7 @@ long int BytesToInt32(const char bytes[4])//, bool _isBigEndian)
 		return (((unsigned char)bytes[3] << 24) | ((unsigned char)bytes[2] << 16) | ((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
 }
 
-int BytesToInt16(const char bytes[2])//, bool _isBigEndian)
+int BytesToInt16(const char bytes[2])
 {
 	if (isBigEndian)
 		return (((unsigned char)bytes[0] << 8) | (unsigned char)bytes[1]);

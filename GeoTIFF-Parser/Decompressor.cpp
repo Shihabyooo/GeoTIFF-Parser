@@ -1,22 +1,23 @@
 #include "Decompressor.h"
 
-void ParseUncompressedStripOrTileData(int stripOrTileID)
+void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMap)
 {
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
 
+	// char ** pixel the buffer we will read our sample values into, is a dynamic array of width = samples (colours) per pixel, and height = how many BYTES(!) each sample contains.
+	//TODO research whether the TIFF format supports BPS values other then 8, 16 and 32bits. If so, modify this algorithm to accomodate them, or have safeguards against parsing them.
 	char ** pixel;
 	pixel = new char *[tiffDetails.samplesPerPixel];
 	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
-		pixel[i] = new char[tiffDetails.bitsPerSample / 8];
-
-	// std::cout << "pixel buffer size: " << tiffDetails.samplesPerPixel << " x " << tiffDetails.bitsPerSample / 8 << std::endl; //test
+		pixel[i] = new char[tiffDetails.bitsPerSample / 8]; //This is where the limitation to only 8, 16 and 32bits bits-per-sample comes from.
 
 	for (int i = 0; i < tiffDetails.noOfPixelsPerTileStrip; i++)
 	{
+		//cache the pixel's location in image. Note: These formulae are only tested for stripped images.
+		//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
+		//The for-loop following this should -in theory- be the same for stripped and tiled images.
 		int xCoord = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width);
 		int yCoord = i % tiffDetails.width;
-
-		//std::cout << "coords: " << xCoord << ", " << yCoord << std::endl; //test
 
 		for (int j = 0; j < tiffDetails.samplesPerPixel; j++)
 		{
@@ -24,7 +25,7 @@ void ParseUncompressedStripOrTileData(int stripOrTileID)
 			{
 			case (1): //unsigned int
 				stream.read(pixel[j], tiffDetails.bitsPerSample / 8);
-				bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
+				_bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
 				break;
 
 			case (2): //two’s complement signed integer data
@@ -36,21 +37,20 @@ void ParseUncompressedStripOrTileData(int stripOrTileID)
 				{
 					float _sample;
 					stream.read((char*)&_sample, tiffDetails.bitsPerSample / 8);
-					bitMap[xCoord].SetValue(yCoord, j, _sample);
+					_bitMap[xCoord].SetValue(yCoord, j, _sample);
 				}
 				else
 				{
 					double _sample;
 					stream.read((char*)&_sample, tiffDetails.bitsPerSample / 8);
-					bitMap[xCoord].SetValue(yCoord, j, _sample);
+					_bitMap[xCoord].SetValue(yCoord, j, _sample);
 				}
 				break;
 			default: //default is unsigned int (case 1)
 				stream.read(pixel[j], tiffDetails.bitsPerSample / 8);
-				bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
+				_bitMap[xCoord].SetValue(yCoord, j, (double)BytesToIntX(pixel[j], tiffDetails.bitsPerSample));
 				break;
 			}
-			//std::cout << "Pixel Channel: " << j << ", value: " << bitMap[xCoord][yCoord][j] << std::endl; //test
 		}
 
 	}
@@ -61,7 +61,7 @@ void ParseUncompressedStripOrTileData(int stripOrTileID)
 	delete[] pixel;
 }
 
-void ParseDeflateStripOrTileData(int stripOrTileID)
+void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 {
 	std::cout << "Attempting to decompress a Deflate data" << std::endl;
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);

@@ -10,6 +10,6 @@ enum DeflateBlockType
 };
 
 
-void ParseUncompressedStripOrTileData(int stripOrTileID);
+void ParseUncompressedStripOrTileData(int stripOrTileID, Array2D * const _bitMap);
 
-void ParseDeflateStripOrTileData(int stripOrTileID);
+void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap);

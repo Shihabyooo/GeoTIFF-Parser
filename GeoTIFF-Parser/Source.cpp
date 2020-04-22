@@ -5,7 +5,8 @@ int main()
 {
 	
 	//LoadGeoTIFF("dem_GCS.tif");
-	LoadGeoTIFF("dem_GSC_uncomp.tif");
+	//LoadGeoTIFF("dem_GSC_uncomp.tif");
+	LoadGeoTIFF("dem_UTM_uncomp.tif");
 	//LoadGeoTIFF("testTIFF.tif");
 	//LoadGeoTIFF("testTIFF_32.tif");
 	

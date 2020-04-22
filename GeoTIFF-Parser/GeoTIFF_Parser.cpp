@@ -2,10 +2,8 @@
 
 //variables
 bool viewTagsInCLI = true;
-//int noOfDoubleParamsGeoKeys = 0;
-//int noOfASCIIParamsGeoKeys = 0;
-//std::unique_ptr<GeoKey[]> doubleParamsGeoKeys;
-//std::unique_ptr<GeoKey[]> asciiParamsGeoKeys;
+Array2D * bitMap; //the actual holder of the geoTIFF raster's data.
+
 std::vector<GeoKey> intParamsGeoKeys;
 std::vector<GeoKey> doubleParamsGeoKeys;
 std::vector<GeoKey> asciiParamsGeoKeys;
@@ -602,7 +600,6 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 //	return result;
 //}
 
-
 short int GetGeoKeyIntData(GeoKey * geoKey, short int * dataArray, int valueOrderInKey = 0)
 {
 	short int result;
@@ -647,7 +644,7 @@ std::string ExtractAndMergeMultiASCIIValues(GeoKey * geoKey, char * dataArray)
 	return result;
 }
 
-template <class T>
+template <typename T>
 void ProcessGeoKey(GeoKey * geoKey, T * dataArray = NULL)
 {
 	switch (geoKey->keyID)
@@ -766,7 +763,7 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 		}
 		else if (geoKey->tiffTagLocation == 0) //These keys have their data inside their own valueOffset bytes.
 		{
-			short int * _nullPtr = NULL; //Because compiler requires something to figure out type of T with..
+			short int * _nullPtr = NULL; //Because the compiler requires something to figure out typeof(T) with..
 			ProcessGeoKey(geoKey.get(), _nullPtr);
 		}
 		else //shouldn't happen
@@ -978,7 +975,7 @@ bool ParseStripOrTileData(int stripOrTileID)
 	switch (tiffDetails.compression)
 	{
 	case (1): //no compression
-		ParseUncompressedStripOrTileData(stripOrTileID);
+		ParseUncompressedStripOrTileData(stripOrTileID, bitMap);
 		break;
 
 	case (32773): //PackBits (Macintosh RLE)
@@ -1019,7 +1016,7 @@ bool ParseStripOrTileData(int stripOrTileID)
 	case (8): //Deflate
 		/*std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
 		return false;*/
-		ParseDeflateStripOrTileData(stripOrTileID);
+		ParseDeflateStripOrTileData(stripOrTileID, bitMap);
 		break;
 
 	case (9): //"Defined by TIFF-F and TIFF-FX standard (RFC 2301) as ITU-T Rec. T.82 coding, using ITU-T Rec. T.85 (which boils down to JBIG on black and white). "
@@ -1041,10 +1038,71 @@ bool ParseStripOrTileData(int stripOrTileID)
 	return true;
 }
 
+void DisplayTIFFDetailsOnCLI()
+{
+	std::cout << "=======================================================================================" << std::endl;
+	std::cout << "\t\tTIFF Details" << std::endl;
+	std::cout << "=======================================================================================" << std::endl;
+
+	std::cout << "Dimensions :" << tiffDetails.width << " x " << tiffDetails.height << std::endl;
+	std::cout << "Samples Per Pixel: " << tiffDetails.samplesPerPixel << std::endl;
+	std::cout << "Bits Per Sample: " << tiffDetails.bitsPerSample << std::endl;
+	std::cout << "Extra Samples Type: " << tiffDetails.extraSampleType << std::endl;
+	std::cout << "Sample Format: " << tiffDetails.sampleFormat << std::endl;
+	std::cout << "Compression: " << tiffDetails.compression << std::endl;
+
+	std::cout << "Photmetric Interpretation: " << tiffDetails.photometricInterpretation << std::endl;
+	std::cout << "Planar Configuration: " << tiffDetails.planarConfiguration << std::endl;
+
+
+
+	switch (tiffDetails.bitmapFormat)
+	{
+	case BitmapFormat::strips:
+		std::cout << "Bitmap format: " << "strips" << std::endl;
+		std::cout << "No. of Strip:" << tiffDetails.noOfTilesOrStrips << std::endl;
+		std::cout << "Strip Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
+		std::cout << "Rows per Strip: " << tiffDetails.rowsPerStrip << std::endl;
+		std::cout << "No. of Pixels per Strip: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
+
+		std::cout << "--------------------" << std::endl;
+		std::cout << "Strip offsets:" << std::endl;
+		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
+		std::cout << "--------------------" << std::endl;
+		break;
+
+	case BitmapFormat::tiles:
+		std::cout << "Bitmap format: " << "tiles" << std::endl;
+		std::cout << "No. of Tiles:" << tiffDetails.noOfTilesOrStrips << std::endl;
+		std::cout << "Tile Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
+		std::cout << "Tile Height: " << tiffDetails.tileHeight << std::endl;
+		std::cout << "Tile Width: " << tiffDetails.tileWidth << std::endl;
+		std::cout << "No. of Pixels per Tile: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
+
+		std::cout << "--------------------" << std::endl;
+		std::cout << "Tile offsets:" << std::endl;
+		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
+		std::cout << "--------------------" << std::endl;
+		break;
+
+	case BitmapFormat::undefined:
+		std::cout << "Bitmap format: " << "undefined" << std::endl;
+		break;
+
+	default:
+		break;
+	}
+
+	std::cout << "=======================================================================================" << std::endl;
+	std::cout << "=======================================================================================" << std::endl;
+}
+
 void DisplayGeoTIFFDetailsOnCLI()
 {
 	std::cout << "=======================================================================================" << std::endl;
-	std::cout << "/t/tGeoTIFF Details" << std::endl;
+	std::cout << "\t\tGeoTIFF Details" << std::endl;
 	std::cout << "=======================================================================================" << std::endl;
 
 	std::cout << "Raster Space: " << geoDetails.rasterSpace << std::endl;
@@ -1086,6 +1144,9 @@ void DisplayGeoTIFFDetailsOnCLI()
 	std::cout << "Ellipsoid Inverse Flattening: " << geoDetails.ellipsoidInvFlattening << std::endl;
 
 	std::cout << "Vertical Datum: " << geoDetails.verticalDatum << std::endl;
+
+	std::cout << "=======================================================================================" << std::endl;
+	std::cout << "=======================================================================================" << std::endl;
 }
 
 bool LoadGeoTIFF(std::string filePath)
@@ -1180,68 +1241,20 @@ bool LoadGeoTIFF(std::string filePath)
 			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Count: " << tag.get()->count << std::endl;
 			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Value\\offset: " << tag.get()->offsetValue << std::endl;
 		}
+		
 		endOfLastTag = stream.tellg();
 
 		ProcessTag(tag.get());
 	}
 
-	std::cout << "===================================================================" << std::endl;
-	std::cout << "Finished processing tags" << std::endl;
-	std::cout << "===================================================================" << std::endl;
-	std::cout << "Tiff Details:" << std::endl;
-
-	std::cout << "Dimensions :" << tiffDetails.width << " x " << tiffDetails.height << std::endl;
-	std::cout << "Samples Per Pixel: " << tiffDetails.samplesPerPixel << std::endl;
-	std::cout << "Bits Per Sample: " << tiffDetails.bitsPerSample << std::endl;
-	std::cout << "Extra Samples Type: " << tiffDetails.extraSampleType << std::endl;
-	std::cout << "Sample Format: " << tiffDetails.sampleFormat << std::endl;
-	std::cout << "Compression: " << tiffDetails.compression << std::endl;
-
-	std::cout << "Photmetric Interpretation: " << tiffDetails.photometricInterpretation << std::endl;
-	std::cout << "Planar Configuration: " << tiffDetails.planarConfiguration << std::endl;
-
+	//Fill out our last remaining TIFFDetail, the Number of Pixels in each strip/tile.
 	tiffDetails.noOfPixelsPerTileStrip = tiffDetails.tileStripByteCount / (tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8);
 
 
-	switch (tiffDetails.bitmapFormat)
-	{
-	case BitmapFormat::strips:
-		std::cout << "Bitmap format: " << "strips" << std::endl;
-		std::cout << "No. of Strip:" << tiffDetails.noOfTilesOrStrips << std::endl;
-		std::cout << "Strip Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
-		std::cout << "Rows per Strip: " << tiffDetails.rowsPerStrip << std::endl;
-		std::cout << "No. of Pixels per Strip: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
-
-		std::cout << "--------------------" << std::endl;
-		std::cout << "Strip offsets:" << std::endl;
-		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
-			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
-		std::cout << "--------------------" << std::endl;
-		break;
-
-	case BitmapFormat::tiles:
-		std::cout << "Bitmap format: " << "tiles" << std::endl;
-		std::cout << "No. of Tiles:" << tiffDetails.noOfTilesOrStrips << std::endl;
-		std::cout << "Tile Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
-		std::cout << "Tile Height: " << tiffDetails.tileHeight << std::endl;
-		std::cout << "Tile Width: " << tiffDetails.tileWidth << std::endl;
-		std::cout << "No. of Pixels per Tile: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
-
-		std::cout << "--------------------" << std::endl;
-		std::cout << "Tile offsets:" << std::endl;
-		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
-			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
-		std::cout << "--------------------" << std::endl;
-		break;
-
-	case BitmapFormat::undefined:
-		std::cout << "Bitmap format: " << "undefined" << std::endl;
-		break;
-
-	default:
-		break;
-	}
-
+	std::cout << "===================================================================" << std::endl;
+	std::cout << "Finished processing tags" << std::endl;
+	std::cout << "===================================================================" << std::endl;
+	
 	//Allocate our bitmap in memory as an array of Array2D.
 	//bitMap = std::unique_ptr<Array2D>(new Array2D[tiffDetails.height]);
 	//for (int i = 0; i < tiffDetails.height; i++)
@@ -1268,31 +1281,29 @@ bool LoadGeoTIFF(std::string filePath)
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 		{
 			std::cout << "Data for strip no " << i << std::endl;
-			//stream.seekg(tiffDetails.tileStripOffset.get()[i]);
 			ParseStripOrTileData(i);
 		}
 	}
 
-	//for (int i = 0; i < tiffDetails.height; i++)
-	//	bitMap.get()[i].DisplayArrayInCLI();
-
-	//for (int i = 0; i < tiffDetails.height; i++)
-	//	//bitMap[i].DisplayArrayInCLI();
-	//{
-	//	for (int j = 0; j < bitMap[i].Rows(); j++)
-	//	{
-	//		for (int k = 0; k < bitMap[i].Columns(); k++)
-	//		{
-	//			if (k > 0)
-	//				std::cout << ",";
-	//			std::cout << bitMap[i][j][k];
-	//		}
-	//		std::cout << "\t";
-	//	}
-	//	std::cout << "[ROW_END]" << std::endl << std::endl;
-	//}
-
+	DisplayTIFFDetailsOnCLI();
 	DisplayGeoTIFFDetailsOnCLI();
+
+
+	for (int i = 0; i < tiffDetails.height; i++)
+	{
+		for (int j = 0; j < bitMap[i].Rows(); j++)
+		{
+			for (int k = 0; k < bitMap[i].Columns(); k++)
+			{
+				if (k > 0)
+					std::cout << ",";
+				std::cout << bitMap[i][j][k];
+			}
+			std::cout << "\t";
+		}
+		std::cout << "[ROW_END]" << std::endl << std::endl;
+	}
+
 
 	return true;
 }

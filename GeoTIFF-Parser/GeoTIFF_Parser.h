@@ -14,4 +14,5 @@
 #include "GeoTIFF_Parser_Globals.h"
 #include "Decompressor.h"
 
+
 bool LoadGeoTIFF(std::string filePath);
