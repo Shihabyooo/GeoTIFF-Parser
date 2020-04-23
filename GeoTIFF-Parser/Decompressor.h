@@ -9,7 +9,8 @@ enum DeflateBlockType
 	noCompression, fixedHuffman, dynamicHuffman, unused
 };
 
-
 void ParseUncompressedStripOrTileData(int stripOrTileID, Array2D * const _bitMap);
 
 void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap);
+
+void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap);

@@ -262,3 +262,4 @@ __pycache__/
 /GeoTIFF-Parser/dem_GCS.tif
 /GeoTIFF-Parser/dem_GSC_uncomp.tif
 /GeoTIFF-Parser/dem_UTM_uncomp.tif
+/GeoTIFF-Parser/dem_GSC_packbits.tif

@@ -1,7 +1,7 @@
 #include "GeoTIFF_Parser.h"
 
 //variables
-bool viewTagsInCLI = true;
+bool viewTagsInCLI = false;
 Array2D * bitMap; //the actual holder of the geoTIFF raster's data.
 
 std::vector<GeoKey> intParamsGeoKeys;
@@ -979,59 +979,58 @@ bool ParseStripOrTileData(int stripOrTileID)
 		break;
 
 	case (32773): //PackBits (Macintosh RLE)
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
-		return false;
+		/*std::cout << "ERROR! Unsupported compression algorithm - PackBits" << std::endl;
+		return false;*/
+		ParsePackBitsStripOrTileData(stripOrTileID, bitMap);
 		break;
 
 	case (2): //CCITT modified Huffman RLE
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - Modified Huffman RLE" << std::endl;
 		return false;
 		break;
 
 	case (3): //CCITT Group 3 fax encoding
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - Group 3 Fax Encoding" << std::endl;
 		return false;
 		break;
 
 	case (4): //CCITT Group 4 fax encoding
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - Group 4 Fax Encoding" << std::endl;
 		return false;
 		break;
 
 	case (5): //LZW
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - LZW" << std::endl;
 		return false;
 		break;
 
 	case (6): //JPEG (old style, deprecated?)
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - JPEG(Deprecated)" << std::endl;
 		return false;
 		break;
 
 	case (7): //JPEG (new style)
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - JPEG" << std::endl;
 		return false;
 		break;
 
 	case (8): //Deflate
-		/*std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
-		return false;*/
 		ParseDeflateStripOrTileData(stripOrTileID, bitMap);
 		break;
 
 	case (9): //"Defined by TIFF-F and TIFF-FX standard (RFC 2301) as ITU-T Rec. T.82 coding, using ITU-T Rec. T.85 (which boils down to JBIG on black and white). "
 				//https://www.awaresystems.be/imaging/tiff/tifftags/compression.html
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - RFC 2301 - ITU-T Rec. T.85" << std::endl;
 		return false;
 		break;
 
 	case (10): //"Defined by TIFF-F and TIFF-FX standard (RFC 2301) as ITU-T Rec. T.82 coding, using ITU-T Rec. T.43 (which boils down to JBIG on color). "
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Unsupported compression algorithm - RFC 2301 - ITU-T Rec. T.43" << std::endl;
 		return false;
 		break;
 
 	default:
-		std::cout << "ERROR! Unsupported compression algorithm" << std::endl;
+		std::cout << "ERROR! Compression algorithm could not be determined." << std::endl;
 		return false;
 		break;
 	}
@@ -1255,6 +1254,10 @@ bool LoadGeoTIFF(std::string filePath)
 	std::cout << "Finished processing tags" << std::endl;
 	std::cout << "===================================================================" << std::endl;
 	
+	DisplayTIFFDetailsOnCLI();
+	DisplayGeoTIFFDetailsOnCLI();
+
+
 	//Allocate our bitmap in memory as an array of Array2D.
 	//bitMap = std::unique_ptr<Array2D>(new Array2D[tiffDetails.height]);
 	//for (int i = 0; i < tiffDetails.height; i++)
@@ -1285,8 +1288,7 @@ bool LoadGeoTIFF(std::string filePath)
 		}
 	}
 
-	DisplayTIFFDetailsOnCLI();
-	DisplayGeoTIFFDetailsOnCLI();
+
 
 
 	for (int i = 0; i < tiffDetails.height; i++)
