@@ -7,6 +7,8 @@
 //Alternatively, we *could* decompress to disk, then read from that disk into our bitmap. This trades memory use for speed.
 
 
+//This code really needs to be DRY'ed...
+
 //=====================================================================================================================================================================
 //-----------------------------------------Uncompressed
 //=====================================================================================================================================================================
@@ -131,67 +133,6 @@ void ParseDecompressedDataFromMemory(int stripOrTileID,
 		delete[] pixel;
 }
 
-//The commented-out function bellow is a failed experiemnt.
-
-//void ParseUncompressedData(	int stripOrTileID,
-//							Array2D * const _bitMap,
-//							unsigned long int dataBegining, //Position in file stream to begin reading uncompressed data from. For TIFFs with compression type = 1, this the begining of the strip/tile.
-//							unsigned long int noOfPixelsToParse, //For Compression = 1 TIFFs, this should equal the entire pixel count of the strip/tile.
-//							unsigned long int firstPixelOrder = 0 //relative to the current strip/tile. Used for when parsing data mid-strip or mid-tile (like in uncompressed blocks in deflate streams.
-//							)
-//{
-//	stream.seekg(dataBegining);
-//
-//	double * pixel = new double[tiffDetails.samplesPerPixel];
-//
-//	for (int i = firstPixelOrder; i < noOfPixelsToParse; i++)
-//	{
-//		//cache the pixel's location in image. Note: These formulae are only tested for stripped images.
-//		//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
-//
-//		int uv[2]; //coordinates of pixel in imagespace (x, y).
-//		uv[0] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //formerly: xCoord.
-//		uv[1] = i % tiffDetails.width; //formerly: yCoord.
-//
-//		for (int j = 0; j < tiffDetails.samplesPerPixel; j++)
-//		{
-//			switch (tiffDetails.sampleFormat)
-//			{
-//			case (1): //unsigned int
-//				pixel[j] = GetUIntSampleCurrentStreamPosition();
-//				break;
-//
-//			case (2): //two’s complement signed integer data
-//			{
-//				std::cout << "ERROR! Two’s Complement Signed Integer TIFFs aren't supported yet." << std::endl;
-//				return;
-//			}
-//			break;
-//
-//			case (3): //floating points
-//				if (tiffDetails.bitsPerSample <= 32) //single precision floats (float).
-//				{
-//					float _sample; //outputing the read value directly as double causes issues.
-//					stream.read((char*)&_sample, tiffDetails.bitsPerSample / 8);
-//					pixel[j] = _sample;
-//				}
-//				else //double precision floats (double).
-//					stream.read((char*)&pixel[j], tiffDetails.bitsPerSample / 8);
-//				break;
-//
-//			default: //default is unsigned int (case 1)		
-//				pixel[j] = GetUIntSampleCurrentStreamPosition();
-//				break;
-//			}
-//		}
-//
-//		SetBitmapPixel(uv, pixel, _bitMap);
-//	}
-//
-//	delete[] pixel;
-//}
-
-
 void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMap)
 {
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
@@ -249,8 +190,6 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 	}
 
 	delete[] pixel;
-
-	//ParseUncompressedData(stripOrTileID, _bitMap, tiffDetails.tileStripOffset.get()[stripOrTileID], tiffDetails.noOfPixelsPerTileStrip);
 }
 
 
@@ -262,7 +201,6 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 unsigned short int noOfLiteralLengthCodes = 0, noOfDistanceCodes = 0, noOfCodeLengthCodes = 0;
 unsigned short int huffmanCodeLengths[19] = {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
 unsigned short int huffmanCodeLegnthsCodes[19] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-//std::unique_ptr<unsigned short int> codeLengthCodes; //code lengths for the code length alphabet
 std::unique_ptr<unsigned short int> literalLengthsAlphabet; //code lengths for the literal/length alphabet
 std::unique_ptr<unsigned short int> distanceAlphabet; //code lengths for the distance alphabet
 
@@ -280,8 +218,6 @@ unsigned char GetNextBit() //returns next bit stored as the lest significant bit
 	//unsigned char result = ((currentByte & (unsigned char)pow(2, bitsRemainingInByte - 1)) >> (bitsRemainingInByte - 1)); //this returns the most-significant bit firs
 	unsigned char result = ((currentByte & (unsigned char)pow(2, 8 - bitsRemainingInByte)) >> (8 - bitsRemainingInByte)); //this returns least significant bit first.
 
-	//std::cout << "returning bit: " << (unsigned short int)result <<std::endl;//test
-
 	bitsRemainingInByte--;
 	return result;
 }
@@ -295,7 +231,6 @@ unsigned char GetNextOctet() //Assumes least significant bit is stored first (i.
 
 	return result;
 }
-
 
 //TODO the function bellow may not be as simple as it is now. Should research this more.
 void DecompressHuffmanAlphabet(std::vector<unsigned char> * targetAlphabet, int noOfCodes)
@@ -619,12 +554,10 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 	std::cout << "Attempted to decompress PackBits data." << std::endl; //test
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
 
-
 	//estimate number of bytes we excpect to have
 	//unsigned long int noOfBytes = tiffDetails.noOfPixelsPerTileStrip * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
 	unsigned long int noOfBytes = tiffDetails.height * (tiffDetails.width + 7) * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
 	std::cout << "noOfBytes: " << noOfBytes << std::endl; //test
-
 
 	unsigned long int counter = 0; //counter is used to track of how many bytes we've extracted.
 	std::unique_ptr<unsigned char> uncompressedRawData = std::unique_ptr<unsigned char>(new unsigned char[noOfBytes]);
@@ -633,13 +566,11 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 	while (counter < noOfBytes)
 	{
 		stream.read(byte, sizeof(byte));
-		//short int _window = (short int) byte[0]; //For packbites:  0 <= _window <= 127: literal bytes; -127 <= _window <=-1 repeated bytes; _window = -128 no operation.
 		short int _window = BytesToInt8(byte); //For packbites:  0 <= _window <= 127: literal bytes; -127 <= _window <=-1 repeated bytes; _window = -128 no operation.
 
 		std::cout << "Counter: " << counter << ", _window: " << _window << std::endl; //test
 
 		unsigned char _byte; //used for the actuall datastream bytes.
-		//unsigned char _word[2];
 		if (_window > -1 && _window < 128)//read n+1 bytes.
 		{
 			for (int i = 0; i < _window + 1; i++) 
@@ -647,34 +578,21 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 				stream.read((char*) &_byte, sizeof(_byte));
 				uncompressedRawData.get()[counter] = _byte;
 				counter++;
-
-				/*stream.read((char*)_word, sizeof(_word));
-				uncompressedRawData.get()[counter] = _word[0];
-				uncompressedRawData.get()[counter + 1] = _word[1];
-				counter += 2;*/
-
 				if (counter >= noOfBytes)
 					break;
 			}
 		}
 		else if (_window < 0 && _window > -128) //read one byte, repeast 1 - n times.
 		{
-
 			stream.read((char*)&_byte, sizeof(_byte));
-			//stream.read((char*)_word, sizeof(_word));
 			for (int i = 0; i < 1 - _window ; i++)
 			{
 				uncompressedRawData.get()[counter] = _byte;
 				counter++;
-
-				//uncompressedRawData.get()[counter] = _word[0];
-				//uncompressedRawData.get()[counter + 1] = _word[1];
-				//counter += 2;
 				
 				if (counter >= noOfBytes)
 					break;
 			}
-
 		}
 		else
 		{
@@ -682,12 +600,6 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		}
 		
 	}
-	//test
-	std::cout << "Extracted : " << counter << std::endl; 
-
-	for (int i = 0; i < counter; i++)
-		std::cout << (short int)uncompressedRawData.get()[i] << "\t";
-	//end test
 	
 	ParseDecompressedDataFromMemory(stripOrTileID, _bitMap, uncompressedRawData.get(), tiffDetails.noOfPixelsPerTileStrip, 0);
 

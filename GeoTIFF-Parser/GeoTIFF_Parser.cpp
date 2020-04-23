@@ -581,25 +581,6 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
-//
-//template <typename T>
-//T GetGeoKeyData(GeoKey * geoKey, T * dataArray, int valueOrderInKey = 0) //valueOrderInKey is used for GeoKeys that have count > 1. valueOrderInKey is the nth element of a Key's count.
-//{																			//default is zero for Keys with count = 1.
-//	T result;
-//	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
-//	{						//are of type short (not used here, but can cause issues) and that the count = 1 (so we return a single value)
-//		result = geoKey->offsetValue;
-//	}
-//	else
-//	{
-//		//Potential problem, since T * does not contain length, we cannot test that (geoKey->offsetValue + geoKey->count) < T.length(). If previously executed code does not guarantee that, this can trigger OOB read.
-//		//TODO solve this.
-//		result = dataArray[geoKey->offsetValue + valueOrderInKey];
-//	}
-//
-//	return result;
-//}
-
 short int GetGeoKeyIntData(GeoKey * geoKey, short int * dataArray, int valueOrderInKey = 0)
 {
 	short int result;
@@ -612,8 +593,6 @@ short int GetGeoKeyIntData(GeoKey * geoKey, short int * dataArray, int valueOrde
 		result = dataArray[geoKey->offsetValue + valueOrderInKey];
 	}
 
-
-	std::cout << "++++GetGeoKeyIntData, returning for tagID: " << geoKey->keyID << " with " << result << std::endl;
 	return result;
 }
 
@@ -698,7 +677,6 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 	stream.seekg(geoKeyDirectoryTag->offsetValue, stream.beg);
 
 	char word[2];
-	//char dword[4];
 	unsigned short int keyDirectoryVersion, keyRevision, minorRevision, numberOfKeys;
 
 	stream.read(word, sizeof(word));
@@ -710,10 +688,10 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 	stream.read(word, sizeof(word));
 	numberOfKeys = BytesToInt16(word);
 
-	std::cout << "Key Directory Version: " << keyDirectoryVersion << " -- " << std::endl;
-	std::cout << "Key Revision: " << keyRevision << " -- " << std::endl;
-	std::cout << "Minor Revision: " << minorRevision << " -- " << std::endl;
-	std::cout << "Number of Keys: " << numberOfKeys << " -- " << std::endl;
+	std::cout << "Key Directory Version: " << keyDirectoryVersion << std::endl;
+	std::cout << "Key Revision: " << keyRevision << std::endl;
+	std::cout << "Minor Revision: " << minorRevision << std::endl;
+	std::cout << "Number of Keys: " << numberOfKeys << std::endl;
 
 	//TODO add a check here to make sure versions match the ones adopted in this code. Else stop execution of remainin of program (a universal bool and int for error code that LoadTIFF() checks after processing tags? Throw Exception?)
 
@@ -1161,7 +1139,7 @@ bool LoadGeoTIFF(std::string filePath)
 	char byte[1];
 	char word[2];
 	char dword[4];
-	char qword[8];
+	//char qword[8];
 
 	//determine endianness
 	std::cout << "Current file loc: " << stream.tellg() << "\t";
@@ -1249,14 +1227,15 @@ bool LoadGeoTIFF(std::string filePath)
 	//Fill out our last remaining TIFFDetail, the Number of Pixels in each strip/tile.
 	tiffDetails.noOfPixelsPerTileStrip = tiffDetails.tileStripByteCount / (tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8);
 
+	if (viewTagsInCLI)
+	{
+		std::cout << "===================================================================" << std::endl;
+		std::cout << "Finished processing tags" << std::endl;
+		std::cout << "===================================================================" << std::endl;
+	}
 
-	std::cout << "===================================================================" << std::endl;
-	std::cout << "Finished processing tags" << std::endl;
-	std::cout << "===================================================================" << std::endl;
-	
 	DisplayTIFFDetailsOnCLI();
 	DisplayGeoTIFFDetailsOnCLI();
-
 
 	//Allocate our bitmap in memory as an array of Array2D.
 	//bitMap = std::unique_ptr<Array2D>(new Array2D[tiffDetails.height]);
@@ -1287,9 +1266,6 @@ bool LoadGeoTIFF(std::string filePath)
 			ParseStripOrTileData(i);
 		}
 	}
-
-
-
 
 	for (int i = 0; i < tiffDetails.height; i++)
 	{
