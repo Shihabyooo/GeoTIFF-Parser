@@ -2,7 +2,8 @@
 
 //variables
 bool viewTagsInCLI = false;
-Array2D * bitMap; //the actual holder of the geoTIFF raster's data.
+unsigned long int firstIFDOffset;
+Array2D * bitMap = NULL; //the actual holder of the geoTIFF raster's data.
 
 std::vector<GeoKey> intParamsGeoKeys;
 std::vector<GeoKey> doubleParamsGeoKeys;
@@ -10,6 +11,7 @@ std::vector<GeoKey> asciiParamsGeoKeys;
 
 
 //functions
+//TODO replace all function definitions before LoadGeoTIFF() with forward declarations (except those declared in header), move definitions to the end (and sort according to use).
 //TODO replace GetFieldDescription() and GetGeoKeyDescription with fixed 2D array (or any container of pairs with fast random access) hardcoded into a header file, and have those function only retrieve from those containers.
 std::string GetFieldDescription(unsigned short int tagID)
 {
@@ -445,7 +447,7 @@ Type GetType(short int typeID)
 	return type;
 }
 
-long int GetFieldIntData(Tag * tag)
+long int GetFieldIntData(const Tag * tag)
 {
 	bool isOffsetData = false;
 	if (tag->count * GetType(tag->fieldTypeID).size > 4)
@@ -489,7 +491,7 @@ long int GetFieldIntData(Tag * tag)
 	return value;
 }
 
-void GetFieldIntArrayData(Tag * tag, long int * outputArray)
+void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 {
 	bool isOffsetData = false;
 	if (tag->count * GetType(tag->fieldTypeID).size > 4)
@@ -581,7 +583,7 @@ void GetFieldIntArrayData(Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
-short int GetGeoKeyIntData(GeoKey * geoKey, short int * dataArray, int valueOrderInKey = 0)
+short int GetGeoKeyIntData(const GeoKey * geoKey, short int * dataArray, int valueOrderInKey = 0)
 {
 	short int result;
 	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
@@ -596,7 +598,7 @@ short int GetGeoKeyIntData(GeoKey * geoKey, short int * dataArray, int valueOrde
 	return result;
 }
 
-double GetGeoKeyDoubleData(GeoKey * geoKey, double * dataArray, int valueOrderInKey = 0)
+double GetGeoKeyDoubleData(const GeoKey * geoKey, double * dataArray, int valueOrderInKey = 0)
 {
 	short int result;
 	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
@@ -611,7 +613,7 @@ double GetGeoKeyDoubleData(GeoKey * geoKey, double * dataArray, int valueOrderIn
 	return result;
 }
 
-std::string ExtractAndMergeMultiASCIIValues(GeoKey * geoKey, char * dataArray)
+std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, char * dataArray)
 {
 	std::string result = "";
 
@@ -624,7 +626,7 @@ std::string ExtractAndMergeMultiASCIIValues(GeoKey * geoKey, char * dataArray)
 }
 
 template <typename T>
-void ProcessGeoKey(GeoKey * geoKey, T * dataArray = NULL)
+void ProcessGeoKey(const GeoKey * geoKey, T * dataArray = NULL)
 {
 	switch (geoKey->keyID)
 	{
@@ -671,7 +673,7 @@ void ProcessGeoKey(GeoKey * geoKey, T * dataArray = NULL)
 	}
 }
 
-void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
+void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
 {
 	std::cout << "Processing geoKeys." << std::endl;
 	stream.seekg(geoKeyDirectoryTag->offsetValue, stream.beg);
@@ -767,7 +769,7 @@ void ProcessGeoKeyDirectory(Tag * geoKeyDirectoryTag)
 
 }
 
-void ProcessTag(Tag * tag)
+void ProcessTag(const Tag * tag)
 {
 	switch (tag->tagID)
 	{
@@ -957,8 +959,6 @@ bool ParseStripOrTileData(int stripOrTileID)
 		break;
 
 	case (32773): //PackBits (Macintosh RLE)
-		/*std::cout << "ERROR! Unsupported compression algorithm - PackBits" << std::endl;
-		return false;*/
 		ParsePackBitsStripOrTileData(stripOrTileID, bitMap);
 		break;
 
@@ -1126,23 +1126,28 @@ void DisplayGeoTIFFDetailsOnCLI()
 	std::cout << "=======================================================================================" << std::endl;
 }
 
-bool LoadGeoTIFF(std::string filePath)
+bool OpenTIFFFile(std::string filePath)
 {
 	stream.open(filePath, std::ios::binary | std::ios::in);
 
 	if (!stream.is_open())
 	{
-		std::cout << "Could not open file" << std::endl;
+		std::cout << "Could not open file " << filePath.c_str() << std::endl;
 		return false;
 	}
 
+	return true;
+}
+
+bool ParseTIFFHeader()
+{
 	char byte[1];
 	char word[2];
 	char dword[4];
 	//char qword[8];
 
 	//determine endianness
-	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	//std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(word, sizeof(word));
 	std::cout << "byte order: " << word[0] << word[1] << std::endl;
 
@@ -1150,22 +1155,22 @@ bool LoadGeoTIFF(std::string filePath)
 	{
 	case 'I':
 		isBigEndian = false;
-		std::cout << "Byte order set to little-endian." << std::endl;
+		//std::cout << "Byte order set to little-endian." << std::endl;
 		break;
 	case 'M':
 		isBigEndian = true;
-		std::cout << "Byte order set to Big-endian." << std::endl;
+		//std::cout << "Byte order set to Big-endian." << std::endl;
 		break;
 	default:
 		std::cout << "Could not determine the byte order of the file." << std::endl;
-		return false;
-		break;
+		return false;;
 	}
 
 	//check version (should always be 42)
-	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	//std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(word, sizeof(word));
-	std::cout << "Format version: " << BytesToInt16(word) << std::endl;
+	//std::cout << "Format version: " << BytesToInt16(word) << std::endl;
+	
 	if (BytesToInt16(word) != 42)
 	{
 		std::cout << "ERROR! File header does not indicate a TIFF file. The answer to the universe was not found." << std::endl;
@@ -1173,19 +1178,28 @@ bool LoadGeoTIFF(std::string filePath)
 	}
 
 	//check offset to first IFD (Image File Directory)
-	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	//std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(dword, sizeof(dword));
-	long int firstIFDOffset = BytesToInt32(dword); //might need it later
-	std::cout << "First IFD offset: " << firstIFDOffset << std::endl;
+	firstIFDOffset = BytesToInt32(dword);
+	//std::cout << "First IFD offset: " << firstIFDOffset << std::endl;
+
+	return true;
+}
+
+bool ParseFirstIFDHeader()
+{
+	char byte[1];
+	char word[2];
+	char dword[4];
 
 	//seek to first IFD begining
 	stream.seekg(firstIFDOffset, stream.beg);
 
 	//check IFD header
-	std::cout << "Current file loc: " << stream.tellg() << "\t";
+	//std::cout << "Current file loc: " << stream.tellg() << "\t";
 	stream.read(word, sizeof(word));
 	short int noOfTagsInIFD = BytesToInt16(word);
-	std::cout << "Number of IFD enteries: " << noOfTagsInIFD << std::endl;
+	//std::cout << "Number of IFD enteries: " << noOfTagsInIFD << std::endl;
 
 	unsigned long int endOfLastTag = stream.tellg(); //Because ProcessTag() may modify the position in the stream and is called at end of loop, any further reading of tags wouldn't be correct.
 													//So, we cache the position of the tag end before we call ProcessTag()
@@ -1218,7 +1232,7 @@ bool LoadGeoTIFF(std::string filePath)
 			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Count: " << tag.get()->count << std::endl;
 			std::cout << "Current file loc: " << stream.tellg() << "\t" << "Value\\offset: " << tag.get()->offsetValue << std::endl;
 		}
-		
+
 		endOfLastTag = stream.tellg();
 
 		ProcessTag(tag.get());
@@ -1234,9 +1248,11 @@ bool LoadGeoTIFF(std::string filePath)
 		std::cout << "===================================================================" << std::endl;
 	}
 
-	DisplayTIFFDetailsOnCLI();
-	DisplayGeoTIFFDetailsOnCLI();
+	return true;
+}
 
+bool AllocateBitmapMemory()
+{
 	//Allocate our bitmap in memory as an array of Array2D.
 	//bitMap = std::unique_ptr<Array2D>(new Array2D[tiffDetails.height]);
 	//for (int i = 0; i < tiffDetails.height; i++)
@@ -1244,27 +1260,66 @@ bool LoadGeoTIFF(std::string filePath)
 	//	bitMap.get()[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
 	//}
 
-	bitMap = new Array2D[tiffDetails.height];
-	for (int i = 0; i < tiffDetails.height; i++)
+	try
 	{
-		bitMap[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
+		bitMap = new Array2D[tiffDetails.height];
+		for (int i = 0; i < tiffDetails.height; i++)
+		{
+			bitMap[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
+		}
+	}
+	catch (const std::bad_alloc& e)
+	{
+		std::cout << "ERROR! Could not allocate memory for the Bitmap." << std::endl;
+		std::cout << e.what() << std::endl;
+		return false;
 	}
 
+	return true;
+}
+
+void DeallocateBitmapMemory()
+{
+	if (bitMap != NULL)
+	{
+		for (int i = 0; i < tiffDetails.height; i++)
+			bitMap[i].~Array2D();
+		delete[] bitMap;
+		bitMap = NULL;
+	}
+}
+
+bool ParseFirstBitmap()
+{
 	if (tiffDetails.planarConfiguration != 1)
 	{
 		std::cout << "ERROR! This reader cannot parse non-chunky (TIFF6.0 Planar Configuration other than 1) TIFF files." << std::endl;
+		return false;
 	}
 	else if (tiffDetails.bitsPerSample != 8 && tiffDetails.bitsPerSample != 16 && tiffDetails.bitsPerSample != 32)
 	{
 		std::cout << "ERROR! This reader can only parse 8, 16 and 32 bits-per-samples images." << std::endl;
+		return false;
 	}
 	else
 	{
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 		{
 			std::cout << "Data for strip no " << i << std::endl;
-			ParseStripOrTileData(i);
+			if (!ParseStripOrTileData(i))
+				return false;
 		}
+	}
+
+	return true;
+}
+
+void DisplayBitmapOnCLI()
+{
+	if (bitMap == NULL)
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory." << std::endl;
+		return;
 	}
 
 	for (int i = 0; i < tiffDetails.height; i++)
@@ -1279,9 +1334,53 @@ bool LoadGeoTIFF(std::string filePath)
 			}
 			std::cout << "\t";
 		}
-		std::cout << "[ROW_END]" << std::endl << std::endl;
+		std::cout << "[ROW_ " << i << "_END]" << std::endl << std::endl;
+	}
+}
+
+bool LoadGeoTIFF(std::string filePath) //Primary entry point
+{
+	
+	if (!OpenTIFFFile(filePath))
+		return false;
+
+	if (!ParseTIFFHeader())
+		return false;
+
+	if (!ParseFirstIFDHeader()) //Currently, no error checking is done in ParseFirstIFDHeader(), but future work should include some.
+		return false;
+
+	DisplayTIFFDetailsOnCLI();
+	DisplayGeoTIFFDetailsOnCLI();
+
+	if (!AllocateBitmapMemory())
+		return false;
+
+	if (!ParseFirstBitmap())
+	{
+		UnloadGeoTIFF();
+		return false;
 	}
 
+	DisplayBitmapOnCLI();
+
+	stream.close();
 
 	return true;
+}
+
+void UnloadGeoTIFF()
+{
+	DeallocateBitmapMemory();
+
+	intParamsGeoKeys.clear();
+	doubleParamsGeoKeys.clear();
+	asciiParamsGeoKeys.clear();
+
+	if (stream.is_open())
+		stream.close();
+	stream.clear();
+
+	tiffDetails = TIFFDetails();
+	geoDetails = GeoTIFFDetails();
 }

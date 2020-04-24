@@ -4,8 +4,6 @@ bool isBigEndian;
 std::ifstream stream;
 TIFFDetails tiffDetails;
 GeoTIFFDetails geoDetails;
-//Array2D * bitMap;
-
 
 long int BytesToInt32(const char bytes[4])
 {

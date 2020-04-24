@@ -114,7 +114,6 @@ extern bool isBigEndian;
 extern std::ifstream stream;
 extern TIFFDetails tiffDetails;
 extern GeoTIFFDetails geoDetails;
-//extern Array2D * bitMap;
 
 
 //Functions
