@@ -50,6 +50,28 @@ double GetIntSamepleFromMemoryData(unsigned char * data, unsigned long int posit
 	return result;
 }
 
+double GetFloatSampleFromMemoryData(unsigned char * data, unsigned long int position)
+{
+	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
+	char * sample = new char[_bytesPerSample];
+
+	position = position * _bytesPerSample;
+
+	for (int i = 0; i < _bytesPerSample; i++)
+		sample[i] = data[position + i];
+
+	//for (int i = _bytesPerSample - 1; i >= 0; i--)
+	//	sample[i] = data[position + (_bytesPerSample - i - 1)];
+
+	double result = *reinterpret_cast<float *>(sample);
+
+	//std::cout << "\nbytespersample: " << _bytesPerSample << std::endl;
+	//std::cout << "returning: " << result << std::endl;
+
+	delete[] sample;
+	return result;
+}
+
 double GetDoubleSampleFromMemoryData(unsigned char * data, unsigned long int position)
 {
 	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
@@ -58,10 +80,12 @@ double GetDoubleSampleFromMemoryData(unsigned char * data, unsigned long int pos
 	position = position * _bytesPerSample;
 
 	for (int i = 0; i < _bytesPerSample; i++)
-		sample[i] = data[_bytesPerSample + i];
-
-	//double result = static_cast<double>(&sample);
-	double result = 0;
+		sample[i] = data[position + i];
+	
+	//for (int i = _bytesPerSample - 1; i >= 0; i--)
+	//	sample[i] = data[position + (_bytesPerSample - i - 1)];
+	
+	double result = *reinterpret_cast<double *>(sample);
 
 	delete[] sample;
 	return result;
@@ -84,7 +108,7 @@ void ParseDecompressedDataFromMemory(int stripOrTileID,
 			uv[0] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //formerly: xCoord.
 			uv[1] = i % tiffDetails.width; //formerly: yCoord.
 	
-			//TODO there is a bit in the refences that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
+			//TODO there is a bit in the references that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
 			if (uv[0] > tiffDetails.width || uv[1] > tiffDetails.height)
 			{
 				std::cout << "Found unused pixels." << std::endl;
@@ -100,25 +124,19 @@ void ParseDecompressedDataFromMemory(int stripOrTileID,
 					break;
 	
 				case (2): //two’s complement signed integer data
-				{
-					/*std::cout << "ERROR! Two’s Complement Signed Integer TIFFs aren't supported yet." << std::endl;
-					delete[] pixel;
-					return;*/
 					pixel[j] = GetIntSamepleFromMemoryData(data, i+j);
-				}
-				break;
+					break;
 	
 				case (3): //floating points
 					if (tiffDetails.bitsPerSample <= 32) //single precision floats (float).
 					{
-						//float _sample; //outputing the read value directly as double causes issues.
-						//stream.read((char*)&_sample, tiffDetails.bitsPerSample / 8);
-						//pixel[j] = _sample;
-						std::cout << "Float PackBits data combination not yet implemented" << std::endl;
+						//std::cout << "Float PackBits data combination not yet implemented" << std::endl;
+						pixel[j] = GetFloatSampleFromMemoryData(data, i + j);
 					}
 					else //double precision floats (double).
-						//stream.read((char*)&pixel[j], tiffDetails.bitsPerSample / 8);
-						std::cout << "Double PackBits data combination not yet implemented" << std::endl;
+						//std::cout << "Double PackBits data combination not yet implemented" << std::endl;
+						pixel[j] = GetDoubleSampleFromMemoryData(data, i + j);
+
 					break;
 	
 				default: //default is unsigned int (case 1)		
@@ -548,6 +566,7 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 //-----------------------------------------PackBits
 //=====================================================================================================================================================================
 
+//Todo fix issue with packbits decomp, rows after first (in case of int32 and float data) aren't parsed correctly.
 
 void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 {
@@ -561,44 +580,40 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 
 	unsigned long int counter = 0; //counter is used to track of how many bytes we've extracted.
 	std::unique_ptr<unsigned char> uncompressedRawData = std::unique_ptr<unsigned char>(new unsigned char[noOfBytes]);
-	char byte[1]; //Used only for the header.
+	char _header; //Used only for the header. The bytes are read as signed characters, so we don't use our BytesToInt8() function as it casts the bytes as unsigned chars.
 
 	while (counter < noOfBytes)
 	{
-		stream.read(byte, sizeof(byte));
-		short int _window = BytesToInt8(byte); //For packbites:  0 <= _window <= 127: literal bytes; -127 <= _window <=-1 repeated bytes; _window = -128 no operation.
+		stream.read(&_header, sizeof(_header)); //read header and store in the direct use buffer without converting using BytesToInt8().
+		
+		unsigned char _byte;
 
-		std::cout << "Counter: " << counter << ", _window: " << _window << std::endl; //test
-
-		unsigned char _byte; //used for the actuall datastream bytes.
-		if (_window > -1 && _window < 128)//read n+1 bytes.
+		if (_header >= 0 && _header <= 127)//read n+1 bytes.
 		{
-			for (int i = 0; i < _window + 1; i++) 
+			for (int i = 0; i < _header + 1; i++)
 			{
 				stream.read((char*) &_byte, sizeof(_byte));
 				uncompressedRawData.get()[counter] = _byte;
 				counter++;
-				if (counter >= noOfBytes)
-					break;
 			}
 		}
-		else if (_window < 0 && _window > -128) //read one byte, repeast 1 - n times.
+		else if (_header <= -1 && _header >= -127) //read one byte, repeast 1 - n times.
 		{
 			stream.read((char*)&_byte, sizeof(_byte));
-			for (int i = 0; i < 1 - _window ; i++)
+			for (int i = 0; i < 1 - _header; i++)
 			{
 				uncompressedRawData.get()[counter] = _byte;
 				counter++;
-				
-				if (counter >= noOfBytes)
-					break;
 			}
+		}
+		else if (_header > 127 || _header < -127)
+		{
+			std::cout << "ERROR! Found an out-of-spec Packbits header." << std::endl;
 		}
 		else
 		{
 			std::cout << "Packbits - NoOp." << std::endl;
 		}
-		
 	}
 	
 	ParseDecompressedDataFromMemory(stripOrTileID, _bitMap, uncompressedRawData.get(), tiffDetails.noOfPixelsPerTileStrip, 0);
