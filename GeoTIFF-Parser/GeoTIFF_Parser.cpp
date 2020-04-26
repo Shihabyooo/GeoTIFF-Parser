@@ -1362,7 +1362,7 @@ bool LoadGeoTIFF(std::string filePath) //Primary entry point
 		return false;
 	}
 
-	DisplayBitmapOnCLI();
+	//DisplayBitmapOnCLI();
 
 	stream.close();
 
