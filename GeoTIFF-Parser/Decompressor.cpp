@@ -277,6 +277,7 @@ public:
 		if (value.get() == NULL)
 			value = std::unique_ptr<unsigned short int>(new unsigned short int);
 
+
 		*value = _value;
 	}
 
@@ -287,6 +288,8 @@ private:
 };
 
 std::unique_ptr<HuffmanTreeNode> codeLengthHuffmanTree;
+std::unique_ptr<HuffmanTreeNode> litLengthHuffmanTree;
+std::unique_ptr<HuffmanTreeNode> distHuffmanTree;
 
 unsigned char GetNextBit() //returns next bit stored as the lest significant bit of a byte (because CPP doesn't support stand-alone bits)
 {
@@ -329,12 +332,14 @@ unsigned short int GetHuffmanCodeLength(unsigned short int length)
 
 }
 
+//TODO merge BuildFirstHuffmanTree() and BuildSecondHuffmanTree() into one method (somehow).
+
 bool BuildFirstHuffmanTree()
 {
 	const int maxBits = 15;
 	const int maxCode = 18;
 	//const int maxLength = 300;
-	std::unique_ptr<unsigned short int> _nextCode = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
+	std::unique_ptr<unsigned short int> nextCode = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
 	unsigned short int codeLengthCodes[19] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 	std::unique_ptr<unsigned short int> codeLengthFrequency = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
@@ -364,7 +369,7 @@ bool BuildFirstHuffmanTree()
 	for (int i = 1; i <= maxBits; i++)
 	{
 		_code = ((_code + codeLengthFrequency.get()[i - 1]) << 1);
-		_nextCode.get()[i] = _code;
+		nextCode.get()[i] = _code;
 
 		std::cout << _code << "\t";//test
 	}
@@ -378,8 +383,8 @@ bool BuildFirstHuffmanTree()
 		unsigned short int length = GetHuffmanCodeLength(i);
 		if (length != 0)
 		{
-			codeLengthCodes[i] = _nextCode.get()[length];
-			_nextCode.get()[length]++;
+			codeLengthCodes[i] = nextCode.get()[length];
+			nextCode.get()[length]++;
 		}
 	}
 
@@ -413,6 +418,95 @@ bool BuildFirstHuffmanTree()
 		delete[] bits;
 	}
 	//std::cout << std::endl; //test
+	return true;
+}
+
+bool BuildSecondHuffmanTree(unsigned short int * codeLengths, const unsigned short int noOfCodes, const int maxCode, std::unique_ptr < HuffmanTreeNode> * tree)
+{
+	const int maxBits = 15;
+	//const int maxLitLengthCode = 286;
+	//const int maxDistCode = 30;
+	std::unique_ptr<unsigned short int> nextCode = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
+	//unsigned short int codes[maxCode] = {0};
+	std::unique_ptr<unsigned short int> codes = std::unique_ptr<unsigned short int>( new unsigned short int[maxCode]);
+	for (int i = 0; i < maxCode; i++)
+		codes.get()[i] = 0;
+
+	std::unique_ptr<unsigned short int> codeLengthFrequency = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
+
+	//Step 1: Count length frequencies.
+	std::cout << "Counting frequencies." << std::endl; //test
+	for (int i = 0; i <= maxBits; i++)
+	{
+		int count = 0;
+		for (int j = 0; j < noOfCodes; j++)
+		{
+			if (codeLengths[j] == i)
+				count++;
+		}
+		codeLengthFrequency.get()[i] = count;
+		std::cout << codeLengthFrequency.get()[i] << "\t"; //test
+	}
+	std::cout << std::endl; //test
+	
+	//Step 2: finding numerical value of the smallest code for each code length.
+	std::cout << "computing next code" << std::endl; //test
+	unsigned short int _code = 0;
+	codeLengthFrequency.get()[0] = 0;
+
+	std::cout << _code << "\t";//test
+	for (int i = 1; i <= maxBits; i++)
+	{
+		_code = ((_code + codeLengthFrequency.get()[i - 1]) << 1);
+		nextCode.get()[i] = _code;
+
+		std::cout << _code << "\t";//test
+	}
+	std::cout << std::endl; //test
+
+	std::cout << "Assigning numerical code" << std::endl; //test
+	for (int i = 0; i <= noOfCodes; i++)
+	{
+		unsigned short int length = codeLengths[i];
+		if (length != 0)
+		{
+			codes.get()[i] = nextCode.get()[length];
+			nextCode.get()[length]++;
+		}
+	}
+
+	//Fill the tree's linked list.
+	std::cout << "Building linked list" << std::endl; //test
+
+	*tree = std::unique_ptr<HuffmanTreeNode>(new HuffmanTreeNode());
+
+
+	for (int i = 0; i <= noOfCodes; i++)
+	{
+		unsigned long int _size = 8 * sizeof(codes.get()[0]);
+		unsigned short int * bits = new unsigned short int[_size];
+		for (int j = 0; j < _size; j++)
+			bits[j] = ((unsigned char)codes.get()[i] & (long int)pow(2, j)) >> j;
+
+		std::cout << i << "\tcode length:\t" << codeLengths[i] << "\tCode:\t" << codes.get()[i] << "\tCode:\t"; //test
+		HuffmanTreeNode * node = tree->get();
+
+		for (int j = codeLengths[i] - 1; j >= 0; j--)
+		{
+			std::cout << bits[j];
+			if (node->NextNode(bits[j]) == NULL)
+			{
+				node->AddNode(bits[j]);
+			}
+			node = node->NextNode(bits[j]);
+		}
+		std::cout << std::endl; //test
+		node->SetValue(i);
+
+		delete[] bits;
+	}
+	std::cout << std::endl; //test
+
 	return true;
 }
 
@@ -549,6 +643,11 @@ void BuildHuffmanTree()
 	for (int i = 0; i < _distanceAlphabet.size(); i++)
 		distanceAlphabet.get()[i] = _distanceAlphabet[i];
 
+
+	BuildSecondHuffmanTree(literalLengthsAlphabet.get(), noOfLiteralLengthCodes, 286, &litLengthHuffmanTree);
+	BuildSecondHuffmanTree(distanceAlphabet.get(), noOfDistanceCodes, 30, &distHuffmanTree);
+
+
 	//test
 	std::cout << "noOfLiteralLengthCodes: " << noOfLiteralLengthCodes << std::endl;
 	std::cout << "noOfDistanceCodes: " << noOfDistanceCodes << std::endl;
@@ -563,14 +662,17 @@ void BuildHuffmanTree()
 	for (std::vector<unsigned short int>::iterator it = _distanceAlphabet.begin(); it < _distanceAlphabet.end(); ++it)
 		std::cout << (unsigned short int)*it << "\t";
 	std::cout << std::endl;
-
-
-
 }
 
-unsigned char DecodeValue(unsigned char value)
+unsigned char DecodeNextValue()
 {
 	unsigned char result = 0x00;
+	
+	while (true)
+	{
+
+	}
+
 
 	return result;
 }
@@ -621,16 +723,8 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 
 	while (!isLastBlock && !stream.eof())
 	{
-		//TODO The part bellow assumes header begins at byte boundary, this is false. Only the first block's header is.
-
 		//read out the block header (read entire byte then extract 3-top bits.
 		
-		/*stream.read(byte, sizeof(byte));
-		blockHeaderBit = ((unsigned char)byte[0] & 0x01);
-		blockTypeBits[0] = ((unsigned char)byte[0] & 0x02) >> 1;
-		blockTypeBits[1] = ((unsigned char)byte[0] & 0x04) >> 2;
-*/
-
 		blockHeaderBit = GetNextBit();
 		blockTypeBits[0] = GetNextBit();
 		blockTypeBits[1] = GetNextBit();
@@ -699,7 +793,7 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 			while (!stream.eof())
 			{
 				unsigned char _byte;
-				_byte = DecodeValue(GetNextOctet());
+				_byte = DecodeNextValue();
 
 				if ((unsigned short int) _byte < 256) //literal.
 					uncompressedRawData.push_back(_byte);
