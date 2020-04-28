@@ -14,7 +14,7 @@ int main()
 	//LoadGeoTIFF("TestData\\testTIFF_32.tif");
 	
 
-	//DisplayBitmapOnCLI();
+	DisplayBitmapOnCLI();
 	UnloadGeoTIFF();
 	std::cout << "FINISHED!" << std::endl; //test
 	return 0;

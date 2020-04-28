@@ -421,7 +421,7 @@ bool BuildFirstHuffmanTree()
 	return true;
 }
 
-bool BuildSecondHuffmanTree(unsigned short int * codeLengths, const unsigned short int noOfCodes, const int maxCode, std::unique_ptr < HuffmanTreeNode> * tree)
+bool BuildSecondHuffmanTree(const unsigned short int * codeLengths, const unsigned short int noOfCodes, const int maxCode, std::unique_ptr < HuffmanTreeNode> * tree)
 {
 	const int maxBits = 15;
 	//const int maxLitLengthCode = 286;
@@ -603,6 +603,10 @@ void BuildHuffmanTree()
 	noOfCodeLengthCodes += 4;
 
 	//codeLengthCodes = std::unique_ptr<unsigned short int>(new unsigned short int[19]);
+	//Zero out the huffmanCodeLenghts (in case this is the second call of this function)
+	for (int i = 0; i < 19; i++)
+		huffmanCodeLengths[i] = 0;
+
 	for (int i = 0; i < noOfCodeLengthCodes; i++)
 	{
 		unsigned short int _count = 0;
@@ -664,17 +668,25 @@ void BuildHuffmanTree()
 	std::cout << std::endl;
 }
 
-unsigned char DecodeNextValue()
+unsigned short int DecodeNextValue(const HuffmanTreeNode * tree)
 {
-	unsigned char result = 0x00;
 	
-	while (true)
-	{
+	unsigned short int * nodeValue = NULL;
+	HuffmanTreeNode * node = codeLengthHuffmanTree.get();
 
+	while (nodeValue == NULL)
+	{
+		node = node->NextNode((unsigned short int)GetNextBit());
+
+		if (node == NULL)
+		{
+			std::cout << "ERROR! Found a code in datastream not described in the Huffman Tree." << std::endl;
+			return 256;
+		}
+		nodeValue = node->Value();
 	}
 
-
-	return result;
+	return *nodeValue;
 }
 
 void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
@@ -775,10 +787,6 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		case fixedHuffman:
 		{
 			std::cout << "Found fixed-Huffman block." << std::endl;//test
-
-
-
-
 		}
 			break;
 
@@ -792,16 +800,100 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 			//at this point, the stream should be at the begining of the compressed data.
 			while (!stream.eof())
 			{
-				unsigned char _byte;
-				_byte = DecodeNextValue();
+				unsigned short int _data;
+				_data = DecodeNextValue(litLengthHuffmanTree.get());
 
-				if ((unsigned short int) _byte < 256) //literal.
-					uncompressedRawData.push_back(_byte);
-				//else if ()
+				if (_data < 256) //literal.
+					uncompressedRawData.push_back(_data);
+				else if (_data >= 257 && _data <= 285)
+				{
+					unsigned long int _length, _extraBits = 0x00, _lengthOffset;
+					unsigned short int _noOfExtraBits;
 
+					//translate the current _data value to length
+					if (_data <= 264) //not extra bites
+					{
+						_noOfExtraBits = 0;
+						_lengthOffset = 254;
+					}
+					else if (_data >= 256 && _data <= 268)
+					{
+						_noOfExtraBits = 1;
+						_lengthOffset = 251 + (268 - _data) * (pow(2, _noOfExtraBits) - 1);
+					}
+					else if (_data >= 269 && _data <= 272)
+					{
+						_noOfExtraBits = 2;
+						_lengthOffset = 241 + (272 - _data)* (pow(2, _noOfExtraBits) - 1);
+					}
+					else if (_data >= 273 && _data <= 276)
+					{
+						_noOfExtraBits = 3;
+						_lengthOffset = 217 + (276 - _data)* (pow(2, _noOfExtraBits) - 1);
+					}
+					else if (_data >= 277 && _data <= 280)
+					{
+						_noOfExtraBits = 4;
+						_lengthOffset = 165 + (280 - _data)* (pow(2, _noOfExtraBits) - 1);
+					}
+					else if (_data >= 281 && _data <= 284)
+					{
+						_noOfExtraBits = 5;
+						_lengthOffset = 57 + (284 - _data)* (pow(2, _noOfExtraBits) - 1);
+					}
+					else if (_data == 258)
+					{
+						_noOfExtraBits = 0;
+						_data = 512; //hack, so that the equation bellow yields 258.
+						_lengthOffset = 254;
+					}
 
-				else if ((unsigned short int) _byte == 256) //end of compressed data
+					//read _extraBits;
+					for (int i = 0; i < _noOfExtraBits; i++)
+						_extraBits = ((unsigned char)_extraBits << 1) | GetNextBit();
+					
+					//compute length
+					_length = (_data - _lengthOffset) | +_extraBits;
+
+					//decode distance value
+					_data = DecodeNextValue(distHuffmanTree.get());
+					if (_data >= 0 && _data <= 3)
+					{
+						_noOfExtraBits = 0;
+						_lengthOffset = 1;
+					}
+					else if (_data >= 4 && _data <= 29)
+					{
+						_noOfExtraBits = floor((_data - 2) / 2);
+						_lengthOffset = pow(2, _data - _noOfExtraBits - 1) + 1 - (_data % 2) * pow(2, _noOfExtraBits);
+					}
+					else
+						std::cout << "ERROR! Decoded an unexpected distance value" << std::endl;
+
+					//read _extraBits;
+					_extraBits = 0x00;
+					for (int i = 0; i < _noOfExtraBits; i++)
+						_extraBits = ((unsigned char)_extraBits << 1) | GetNextBit();
+
+					unsigned short int _dist = _lengthOffset + _extraBits;
+
+					if (_dist + _length > uncompressedRawData.size())
+						std::cout << "ERROR! Attempting to to seek outside the decompressed data." << std::endl;
+					else
+					{
+						std::unique_ptr<unsigned char> _tempBuffer = std::unique_ptr<unsigned char>( new unsigned char [_length]);
+						for (int i = 0; i < _length; i++)
+							_tempBuffer.get()[i] = uncompressedRawData[uncompressedRawData.size() - _dist - 1 + i];
+
+						for (int i = 0; i < _length; i++)
+							uncompressedRawData.push_back(_tempBuffer.get()[i]);
+					}
+
+				}
+				else if (_data == 256) //end of compressed data
 					break;
+				else
+					std::cout << "ERROR! Decoded an unexpected literal value." << std::endl;
 			}
 		}
 			break;
@@ -814,37 +906,14 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		default:
 			break;
 		}
-
-		////test
-		//std::cout << "---------------------------------------------------" << std::endl;
-		//for (int i = 0; i < 10; i++)
-		//{
-		//	stream.read(byte, sizeof(byte));
-		//	short int bits[8];
-		//	bits[0] = ((unsigned char)byte[0] & 0x01);
-		//	bits[1] = ((unsigned char)byte[0] & 0x02) >> 1;
-		//	bits[2] = ((unsigned char)byte[0] & 0x04) >> 2;
-		//	bits[3] = ((unsigned char)byte[0] & 0x08) >> 3;
-		//	bits[4] = ((unsigned char)byte[0] & 0x10) >> 4;
-		//	bits[5] = ((unsigned char)byte[0] & 0x20) >> 5;
-		//	bits[6] = ((unsigned char)byte[0] & 0x40) >> 6;
-		//	bits[7] = ((unsigned char)byte[0] & 0x80) >> 7;
-		//	//std::cout << "bits: " << bits[7] << bits[6] << bits[5] << bits[4] << bits[3] << bits[2] << bits[1] << bits[0] << std::endl;
-		//	std::cout << "bits: " << bits[0] << bits[1] << bits[2] << bits[3] << bits[4] << bits[5] << bits[6] << bits[7] << std::endl;
-		//}
-		//isLastBlock = true;
-		//std::cout << "---------------------------------------------------" << std::endl;
-		////end test
-
 	}
 
+	std::unique_ptr<unsigned char> _uncompressedRawData = std::unique_ptr<unsigned char>(new unsigned char[uncompressedRawData.size()]);
+	for (int i = 0; i < uncompressedRawData.size(); i++)
+		_uncompressedRawData.get()[i] = uncompressedRawData[i];
 
-	//TODO convert the uncompressedRawData buffer to actual pixel/sample values and copy them into _bitMap 
-	
-	////test output
-	//std::cout << "Compression Method: " << compressionMethod << ", Compression Info: " << compressionInfo << std::endl;
-	//std::cout << "Window Size: " << windowSize << std::endl;
-	//std::cout << "Check Bits: " << checkBits << ", Preset Dictionary: " << presetDictionary << ", Compression Level: " << compressionLevel << std::endl;
+	ParseDecompressedDataFromMemory(stripOrTileID, _bitMap, _uncompressedRawData.get(), tiffDetails.noOfPixelsPerTileStrip, 0);
+	std::cout << "Finished decompression." << std::endl;
 }
 
 //=====================================================================================================================================================================
