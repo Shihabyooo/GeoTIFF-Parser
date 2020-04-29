@@ -316,118 +316,41 @@ unsigned char GetNextOctet() //Assumes least significant bit is stored first (i.
 	return result;
 }
 
-unsigned short int GetHuffmanCodeLength(unsigned short int length)
+unsigned short int DecodeNextValue(const HuffmanTreeNode * tree)
 {
-	if (length > 18)
+
+	unsigned short int * nodeValue = NULL;
+	HuffmanTreeNode * node = codeLengthHuffmanTree.get();
+
+	while (nodeValue == NULL)
 	{
-		std::cout << "ERROR! Attempting to find an Huffman Code Length Code for length > 19." << std::endl;
-		return 0;
+		node = node->NextNode((unsigned short int)GetNextBit());
+
+		if (node == NULL)
+		{
+			std::cout << "ERROR! Found a code in datastream not described in the Huffman Tree." << std::endl;
+			return 256;
+		}
+
+		nodeValue = node->Value();
 	}
 
-	for (int i = 0; i < 19; i++)
-	{
-		if (huffmanCodeLengthsLiterals[i] == length)
-			return huffmanCodeLengths[i];
-	}
-
+	return *nodeValue;
 }
 
-//TODO merge BuildFirstHuffmanTree() and BuildSecondHuffmanTree() into one method (somehow).
-
-bool BuildFirstHuffmanTree()
+void SetSortedHuffmanCodeLengthCode(unsigned short int unsortedOrder, unsigned short int value)
 {
-	const int maxBits = 15;
-	const int maxCode = 18;
-	//const int maxLength = 300;
-	std::unique_ptr<unsigned short int> nextCode = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
-	unsigned short int codeLengthCodes[19] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	if (unsortedOrder > 18)
+		std::cout << "ERROR! Attempting to set a value for a code length > 18." << std::endl;
 
-	std::unique_ptr<unsigned short int> codeLengthFrequency = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
-
-	//Step 1: Count length frequencies.
-	std::cout << "Counting frequencies." << std::endl; //test
-	for (int i = 0; i <= maxBits; i++)
-	{
-		int count = 0;
-		for (int j = 0; j < 19; j++)
-		{
-			if (GetHuffmanCodeLength(j) == i)
-				count++;
-		}
-		codeLengthFrequency.get()[i] = count;
-		std::cout << codeLengthFrequency.get()[i] << "\t"; //test
-	}
-	std::cout << std::endl; //test
-
-
-	//Step 2: finding numerical value of the smallest code for each code length.
-	std::cout << "computing next code" << std::endl; //test
-	unsigned short int _code = 0;
-	codeLengthFrequency.get()[0] = 0;
-
-	std::cout << _code << "\t";//test
-	for (int i = 1; i <= maxBits; i++)
-	{
-		_code = ((_code + codeLengthFrequency.get()[i - 1]) << 1);
-		nextCode.get()[i] = _code;
-
-		std::cout << _code << "\t";//test
-	}
-	std::cout << std::endl; //test
-
-
-	//Step 3: Assign numerical values to all codes.
-	std::cout << "Assigning numerical code" << std::endl; //test
-	for (int i = 0; i <= maxCode; i++)
-	{
-		unsigned short int length = GetHuffmanCodeLength(i);
-		if (length != 0)
-		{
-			codeLengthCodes[i] = nextCode.get()[length];
-			nextCode.get()[length]++;
-		}
-	}
-
-	//Fill the tree's linked list.
-	std::cout << "Building linked list" << std::endl; //test
-
-	codeLengthHuffmanTree = std::unique_ptr<HuffmanTreeNode>(new HuffmanTreeNode());
-
-	for (int i = 0; i <= maxCode; i++)
-	{
-		unsigned long int _size = 8 * sizeof(codeLengthCodes[0]);
-		unsigned short int * bits = new unsigned short int[_size];
-		for (int j = 0; j < _size; j++)
-			bits[j] = ((unsigned char)codeLengthCodes[i] & (long int)pow(2, j)) >> j;
-
-		//std::cout << i << "\tcode length:\t" << GetHuffmanCodeLength(i) << "\tCode:\t" << codeLengthCodes[i] << "\tCode:\t"; //test
-		HuffmanTreeNode * node = codeLengthHuffmanTree.get();
-
-		for (int j = GetHuffmanCodeLength(i) - 1; j >= 0; j--)
-		{
-			//std::cout << bits[j];
-			if (node->NextNode(bits[j]) == NULL)
-			{
-				node->AddNode(bits[j]);
-			}
-			node = node->NextNode(bits[j]);
-		}
-		//std::cout << std::endl; //test
-		node->SetValue(i);
-
-		delete[] bits;
-	}
-	//std::cout << std::endl; //test
-	return true;
+	huffmanCodeLengths[huffmanCodeLengthsLiterals[unsortedOrder]] = value;
 }
 
-bool BuildSecondHuffmanTree(const unsigned short int * codeLengths, const unsigned short int noOfCodes, const int maxCode, std::unique_ptr < HuffmanTreeNode> * tree)
+bool BuildHuffmanTree(const unsigned short int * codeLengths, const unsigned short int noOfCodes, const int maxCode, std::unique_ptr < HuffmanTreeNode> * tree)
 {
+	std::cout << "Building tree" << std::endl;
 	const int maxBits = 15;
-	//const int maxLitLengthCode = 286;
-	//const int maxDistCode = 30;
 	std::unique_ptr<unsigned short int> nextCode = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
-	//unsigned short int codes[maxCode] = {0};
 	std::unique_ptr<unsigned short int> codes = std::unique_ptr<unsigned short int>( new unsigned short int[maxCode]);
 	for (int i = 0; i < maxCode; i++)
 		codes.get()[i] = 0;
@@ -435,7 +358,6 @@ bool BuildSecondHuffmanTree(const unsigned short int * codeLengths, const unsign
 	std::unique_ptr<unsigned short int> codeLengthFrequency = std::unique_ptr<unsigned short int>(new unsigned short int[maxBits]);
 
 	//Step 1: Count length frequencies.
-	std::cout << "Counting frequencies." << std::endl; //test
 	for (int i = 0; i <= maxBits; i++)
 	{
 		int count = 0;
@@ -445,26 +367,23 @@ bool BuildSecondHuffmanTree(const unsigned short int * codeLengths, const unsign
 				count++;
 		}
 		codeLengthFrequency.get()[i] = count;
-		std::cout << codeLengthFrequency.get()[i] << "\t"; //test
+		std::cout << count << "\t"; //test
 	}
 	std::cout << std::endl; //test
-	
+
+
 	//Step 2: finding numerical value of the smallest code for each code length.
-	std::cout << "computing next code" << std::endl; //test
 	unsigned short int _code = 0;
 	codeLengthFrequency.get()[0] = 0;
 
-	std::cout << _code << "\t";//test
 	for (int i = 1; i <= maxBits; i++)
 	{
 		_code = ((_code + codeLengthFrequency.get()[i - 1]) << 1);
 		nextCode.get()[i] = _code;
-
-		std::cout << _code << "\t";//test
 	}
-	std::cout << std::endl; //test
 
-	std::cout << "Assigning numerical code" << std::endl; //test
+	//Step 3: Assign numerical values to all codes.
+
 	for (int i = 0; i <= noOfCodes; i++)
 	{
 		unsigned short int length = codeLengths[i];
@@ -476,36 +395,34 @@ bool BuildSecondHuffmanTree(const unsigned short int * codeLengths, const unsign
 	}
 
 	//Fill the tree's linked list.
-	std::cout << "Building linked list" << std::endl; //test
-
 	*tree = std::unique_ptr<HuffmanTreeNode>(new HuffmanTreeNode());
-
 
 	for (int i = 0; i <= noOfCodes; i++)
 	{
-		unsigned long int _size = 8 * sizeof(codes.get()[0]);
-		unsigned short int * bits = new unsigned short int[_size];
-		for (int j = 0; j < _size; j++)
+		//unsigned long int _size = 8 * sizeof(codes.get()[0]);
+		unsigned short int * bits = new unsigned short int[maxBits];
+		for (int j = 0; j < maxBits; j++)
 			bits[j] = ((unsigned char)codes.get()[i] & (long int)pow(2, j)) >> j;
 
-		std::cout << i << "\tcode length:\t" << codeLengths[i] << "\tCode:\t" << codes.get()[i] << "\tCode:\t"; //test
 		HuffmanTreeNode * node = tree->get();
 
+		std::cout << "Code: " << i << "\t";
 		for (int j = codeLengths[i] - 1; j >= 0; j--)
 		{
-			std::cout << bits[j];
+			//std::cout << bits[j] << " "; //test
 			if (node->NextNode(bits[j]) == NULL)
 			{
 				node->AddNode(bits[j]);
 			}
 			node = node->NextNode(bits[j]);
 		}
-		std::cout << std::endl; //test
+		//std::cout << std::endl; //test
 		node->SetValue(i);
 
 		delete[] bits;
 	}
-	std::cout << std::endl; //test
+
+	std::cout << "Finished building tree" << std::endl;
 
 	return true;
 }
@@ -516,24 +433,12 @@ bool DecompressHuffmanAlphabet(std::vector<unsigned short int> * alphabetContain
 
 	while (alphabetContainer->size() < noOfAlphabets)
 	{
-		unsigned short int * nodeValue = NULL;
-		HuffmanTreeNode * node = codeLengthHuffmanTree.get();
+		unsigned short int nodeValue = DecodeNextValue(codeLengthHuffmanTree.get());
 
-		while (nodeValue == NULL)
+		if (nodeValue < 16)
 		{
-			node = node->NextNode((unsigned short int)GetNextBit());
-
-			if (node == NULL)
-			{
-				std::cout << "ERROR! Found a code in datastream not described in the Huffman Tree." << std::endl;
-				return false;
-			}
-			nodeValue = node->Value();
+			alphabetContainer->push_back(nodeValue);
 		}
-
-
-		if (*nodeValue < 16)
-			alphabetContainer->push_back(*nodeValue);
 		else
 		{
 			unsigned short int _noOfRepeats;
@@ -542,19 +447,19 @@ bool DecompressHuffmanAlphabet(std::vector<unsigned short int> * alphabetContain
 			unsigned short int _repeatCodePaddingVal; //value to convert repeat code to no of repeats (by normal addition).
 			unsigned char _repeatCode = 0x00;
 
-			if (*nodeValue == 16)
+			if (nodeValue == 16)
 			{
 				_noOfRepeatCodeBits = 2;
 				_repeatCodePaddingVal = 3;
 				_repeatValue = alphabetContainer->back();
 			}
-			else if (*nodeValue == 17)
+			else if (nodeValue == 17)
 			{
 				_noOfRepeatCodeBits = 3;
 				_repeatCodePaddingVal = 3;
 				_repeatValue = 0;
 			}
-			else if (*nodeValue == 18)
+			else if (nodeValue == 18)
 			{
 				_noOfRepeatCodeBits = 7;
 				_repeatCodePaddingVal = 11;
@@ -562,7 +467,7 @@ bool DecompressHuffmanAlphabet(std::vector<unsigned short int> * alphabetContain
 			}
 			else //should not happen.
 			{
-				std::cout << "ERROR! Unexpected Code Length Code: " << *nodeValue << " found when constructing dynamic huffman code." << std::endl;
+				std::cout << "ERROR! Unexpected Code Length Code: " << nodeValue << " found when constructing dynamic huffman code." << std::endl;
 				return false;
 			}
 
@@ -576,33 +481,31 @@ bool DecompressHuffmanAlphabet(std::vector<unsigned short int> * alphabetContain
 		}
 	}
 	
+	std::cout << "Finished decompressing alphabet" << std::endl; //test
+
 	return true;
 }
 
-void BuildHuffmanTree()
+void InitializeHuffmanDecoder()
 {
 	std::cout << "Building dynamic Huffman tree" << std::endl; //test
 
 
 	//read No. of literal/length codes - HLIT
 	for (int i = 0; i < 5; i++)
-		//noOfLiteralLengthCodes = ((unsigned char)noOfLiteralLengthCodes << 1) | GetNextBit();
 		noOfLiteralLengthCodes = ((unsigned char)noOfLiteralLengthCodes) | (GetNextBit() << i); //This conforms to puff.c's approach
 	noOfLiteralLengthCodes += 257;
 
 	//read No. of Distance Codes - HDIST
 	for (int i = 0; i < 5; i++)
-		//noOfDistanceCodes = ((unsigned char)noOfDistanceCodes << 1) | GetNextBit();
 		noOfDistanceCodes = ((unsigned char)noOfDistanceCodes ) | (GetNextBit() << i);
 	noOfDistanceCodes += 1;
 
 	//read No. of Code Length codes - HCLEN
 	for (int i = 0; i < 4; i++)
-		//noOfCodeLengthCodes = ((unsigned char)noOfCodeLengthCodes << 1) | GetNextBit();
 		noOfCodeLengthCodes = ((unsigned char)noOfCodeLengthCodes) | (GetNextBit() << i);
 	noOfCodeLengthCodes += 4;
 
-	//codeLengthCodes = std::unique_ptr<unsigned short int>(new unsigned short int[19]);
 	//Zero out the huffmanCodeLenghts (in case this is the second call of this function)
 	for (int i = 0; i < 19; i++)
 		huffmanCodeLengths[i] = 0;
@@ -611,20 +514,15 @@ void BuildHuffmanTree()
 	{
 		unsigned short int _count = 0;
 		for (int j = 0; j < 3; j++)
-			//_count = ((unsigned char)_count << 1) | GetNextBit();
 			_count = ((unsigned char)_count | (GetNextBit() << j));
 		
+		std::cout << _count << "\t";
 		if (i < 19)
-			huffmanCodeLengths[i] = _count;
+			//huffmanCodeLengths[i] = _count;
+			SetSortedHuffmanCodeLengthCode(i, _count);
 		else
 			std::cout << "ERROR! Number of Code Length Codes are more than 19." << std::endl;
 	}
-
-	//test
-	std::cout << "Code Length Codes: " << std::endl;
-	for (int i = 0; i < 19; i++)
-		std::cout << huffmanCodeLengths[i] << "\t";
-	std::cout << std::endl;
 
 	//The part bellow is somewhat redundant. Decompressing the Huffman tree is done into std::vectors, but the actuall end result is mean to be a basic arrays (std::unique_ptr).
 	//TODO remove this redundancy by either using the vectors as an end container, or estimate size and allocate the pointers beforehand.
@@ -632,10 +530,11 @@ void BuildHuffmanTree()
 	//extract literl/lengths and distance alphabets.
 	std::vector<unsigned short int> _literalLengthAlphabet;
 	std::vector<unsigned short int> _distanceAlphabet;
-	BuildFirstHuffmanTree();
+	//BuildFirstHuffmanTree();
+	BuildHuffmanTree(huffmanCodeLengths, 18, 18, &codeLengthHuffmanTree);
+
 	DecompressHuffmanAlphabet(&_literalLengthAlphabet, noOfLiteralLengthCodes);
 	DecompressHuffmanAlphabet(&_distanceAlphabet, noOfDistanceCodes);
-
 
 	//initialize and copy to our main alphabet containers.
 	literalLengthsAlphabet = std::unique_ptr<unsigned short int>(new unsigned short int[_literalLengthAlphabet.size()]);
@@ -647,9 +546,8 @@ void BuildHuffmanTree()
 	for (int i = 0; i < _distanceAlphabet.size(); i++)
 		distanceAlphabet.get()[i] = _distanceAlphabet[i];
 
-
-	BuildSecondHuffmanTree(literalLengthsAlphabet.get(), noOfLiteralLengthCodes, 286, &litLengthHuffmanTree);
-	BuildSecondHuffmanTree(distanceAlphabet.get(), noOfDistanceCodes, 30, &distHuffmanTree);
+	BuildHuffmanTree(literalLengthsAlphabet.get(), noOfLiteralLengthCodes, 286, &litLengthHuffmanTree);
+	BuildHuffmanTree(distanceAlphabet.get(), noOfDistanceCodes, 30, &distHuffmanTree);
 
 
 	//test
@@ -658,35 +556,131 @@ void BuildHuffmanTree()
 	std::cout << "noOfCodeLengthCodes: " << noOfCodeLengthCodes << std::endl;
 	std::cout << "---------------------------------------------------------";
 	std::cout << "Literal/Length codes: No: " << _literalLengthAlphabet.size() << std::endl;
-	for (std::vector<unsigned short int>::iterator it = _literalLengthAlphabet.begin(); it < _literalLengthAlphabet.end(); ++it)
+	/*for (std::vector<unsigned short int>::iterator it = _literalLengthAlphabet.begin(); it < _literalLengthAlphabet.end(); ++it)
 		std::cout << (unsigned short int)*it << "\t";
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 	std::cout << "---------------------------------------------------------";
 	std::cout << "Distance codes: No: " << _distanceAlphabet.size() << std::endl;
-	for (std::vector<unsigned short int>::iterator it = _distanceAlphabet.begin(); it < _distanceAlphabet.end(); ++it)
+	/*for (std::vector<unsigned short int>::iterator it = _distanceAlphabet.begin(); it < _distanceAlphabet.end(); ++it)
 		std::cout << (unsigned short int)*it << "\t";
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 }
 
-unsigned short int DecodeNextValue(const HuffmanTreeNode * tree)
+void DecodeDynamicHuffmanBlock(std::vector<unsigned char> * uncompressedRawData)
 {
-	
-	unsigned short int * nodeValue = NULL;
-	HuffmanTreeNode * node = codeLengthHuffmanTree.get();
+	//first, build the Huffman tree.
+	InitializeHuffmanDecoder();
 
-	while (nodeValue == NULL)
+	//at this point, the stream should be at the begining of the compressed data.
+	while (!stream.eof())
 	{
-		node = node->NextNode((unsigned short int)GetNextBit());
+		unsigned short int _data;
+		_data = DecodeNextValue(litLengthHuffmanTree.get());
 
-		if (node == NULL)
+		if (_data < 256) //literal.
 		{
-			std::cout << "ERROR! Found a code in datastream not described in the Huffman Tree." << std::endl;
-			return 256;
+			//std::cout << "Found a Literal: " << _data << std::endl; //test
+			uncompressedRawData->push_back(_data);
 		}
-		nodeValue = node->Value();
-	}
+		else if (_data >= 257 && _data <= 285)
+		{
+			std::cout << "Found Length: " << _data << std::endl; //test
 
-	return *nodeValue;
+			unsigned long int _length, _extraBits = 0x00, _lengthOffset;
+			unsigned short int _noOfExtraBits;
+
+			//translate the current _data value to length
+			if (_data <= 264) //not extra bites
+			{
+				_noOfExtraBits = 0;
+				_lengthOffset = 254;
+			}
+			else if (_data >= 256 && _data <= 268)
+			{
+				_noOfExtraBits = 1;
+				_lengthOffset = 251 + (268 - _data) * (pow(2, _noOfExtraBits) - 1);
+			}
+			else if (_data >= 269 && _data <= 272)
+			{
+				_noOfExtraBits = 2;
+				_lengthOffset = 241 + (272 - _data)* (pow(2, _noOfExtraBits) - 1);
+			}
+			else if (_data >= 273 && _data <= 276)
+			{
+				_noOfExtraBits = 3;
+				_lengthOffset = 217 + (276 - _data)* (pow(2, _noOfExtraBits) - 1);
+			}
+			else if (_data >= 277 && _data <= 280)
+			{
+				_noOfExtraBits = 4;
+				_lengthOffset = 165 + (280 - _data)* (pow(2, _noOfExtraBits) - 1);
+			}
+			else if (_data >= 281 && _data <= 284)
+			{
+				_noOfExtraBits = 5;
+				_lengthOffset = 57 + (284 - _data)* (pow(2, _noOfExtraBits) - 1);
+			}
+			else if (_data == 258)
+			{
+				_noOfExtraBits = 0;
+				_data = 512; //hack, so that the equation bellow yields 258.
+				_lengthOffset = 254;
+			}
+
+			//read _extraBits;
+			for (int i = 0; i < _noOfExtraBits; i++)
+				_extraBits = ((unsigned char)_extraBits << 1) | GetNextBit();
+
+			//compute length
+			_length = (_data - _lengthOffset) | +_extraBits;
+
+			//decode distance value
+			_data = DecodeNextValue(distHuffmanTree.get());
+			if (_data >= 0 && _data <= 3)
+			{
+				_noOfExtraBits = 0;
+				_lengthOffset = 1;
+			}
+			else if (_data >= 4 && _data <= 29)
+			{
+				_noOfExtraBits = floor((_data - 2) / 2);
+				_lengthOffset = pow(2, _data - _noOfExtraBits - 1) + 1 - (_data % 2) * pow(2, _noOfExtraBits);
+			}
+			else
+				std::cout << "ERROR! Decoded an unexpected distance value" << std::endl;
+
+			//read _extraBits;
+			_extraBits = 0x00;
+			for (int i = 0; i < _noOfExtraBits; i++)
+				_extraBits = ((unsigned char)_extraBits << 1) | GetNextBit();
+
+			unsigned short int _dist = _lengthOffset + _extraBits;
+
+			if (_dist + _length > uncompressedRawData->size())
+				std::cout << "ERROR! Attempting to to seek outside the decompressed data." << std::endl;
+			else
+			{
+				std::unique_ptr<unsigned char> _tempBuffer = std::unique_ptr<unsigned char>(new unsigned char[_length]);
+				for (int i = 0; i < _length; i++)
+					_tempBuffer.get()[i] = (*uncompressedRawData)[uncompressedRawData->size() - _dist - 1 + i];
+
+				for (int i = 0; i < _length; i++)
+					uncompressedRawData->push_back(_tempBuffer.get()[i]);
+			}
+
+		}
+		else if (_data == 256) //end of compressed data
+		{
+			std::cout << "Found end of compressed data. " << std::endl; //test
+			break;
+		}
+		else
+			std::cout << "ERROR! Decoded an unexpected literal value." << std::endl;
+
+		//test
+		if (stream.eof())
+			std::cout << "ERROR! Reached end of file before reaching end of compressed data stream." << std::endl;
+	}
 }
 
 void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
@@ -694,7 +688,6 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 
 	std::cout << "Attempting to decompress a Deflate data" << std::endl;
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
-
 
 	short int compressionMethod, compressionInfo;
 	short int checkBits, presetDictionary, compressionLevel;
@@ -793,108 +786,7 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		case dynamicHuffman:
 		{
 			std::cout << "Found dynamic-Huffman block." << std::endl;//test
-
-			//first, build the Huffman tree.
-			BuildHuffmanTree();
-			
-			//at this point, the stream should be at the begining of the compressed data.
-			while (!stream.eof())
-			{
-				unsigned short int _data;
-				_data = DecodeNextValue(litLengthHuffmanTree.get());
-
-				if (_data < 256) //literal.
-					uncompressedRawData.push_back(_data);
-				else if (_data >= 257 && _data <= 285)
-				{
-					unsigned long int _length, _extraBits = 0x00, _lengthOffset;
-					unsigned short int _noOfExtraBits;
-
-					//translate the current _data value to length
-					if (_data <= 264) //not extra bites
-					{
-						_noOfExtraBits = 0;
-						_lengthOffset = 254;
-					}
-					else if (_data >= 256 && _data <= 268)
-					{
-						_noOfExtraBits = 1;
-						_lengthOffset = 251 + (268 - _data) * (pow(2, _noOfExtraBits) - 1);
-					}
-					else if (_data >= 269 && _data <= 272)
-					{
-						_noOfExtraBits = 2;
-						_lengthOffset = 241 + (272 - _data)* (pow(2, _noOfExtraBits) - 1);
-					}
-					else if (_data >= 273 && _data <= 276)
-					{
-						_noOfExtraBits = 3;
-						_lengthOffset = 217 + (276 - _data)* (pow(2, _noOfExtraBits) - 1);
-					}
-					else if (_data >= 277 && _data <= 280)
-					{
-						_noOfExtraBits = 4;
-						_lengthOffset = 165 + (280 - _data)* (pow(2, _noOfExtraBits) - 1);
-					}
-					else if (_data >= 281 && _data <= 284)
-					{
-						_noOfExtraBits = 5;
-						_lengthOffset = 57 + (284 - _data)* (pow(2, _noOfExtraBits) - 1);
-					}
-					else if (_data == 258)
-					{
-						_noOfExtraBits = 0;
-						_data = 512; //hack, so that the equation bellow yields 258.
-						_lengthOffset = 254;
-					}
-
-					//read _extraBits;
-					for (int i = 0; i < _noOfExtraBits; i++)
-						_extraBits = ((unsigned char)_extraBits << 1) | GetNextBit();
-					
-					//compute length
-					_length = (_data - _lengthOffset) | +_extraBits;
-
-					//decode distance value
-					_data = DecodeNextValue(distHuffmanTree.get());
-					if (_data >= 0 && _data <= 3)
-					{
-						_noOfExtraBits = 0;
-						_lengthOffset = 1;
-					}
-					else if (_data >= 4 && _data <= 29)
-					{
-						_noOfExtraBits = floor((_data - 2) / 2);
-						_lengthOffset = pow(2, _data - _noOfExtraBits - 1) + 1 - (_data % 2) * pow(2, _noOfExtraBits);
-					}
-					else
-						std::cout << "ERROR! Decoded an unexpected distance value" << std::endl;
-
-					//read _extraBits;
-					_extraBits = 0x00;
-					for (int i = 0; i < _noOfExtraBits; i++)
-						_extraBits = ((unsigned char)_extraBits << 1) | GetNextBit();
-
-					unsigned short int _dist = _lengthOffset + _extraBits;
-
-					if (_dist + _length > uncompressedRawData.size())
-						std::cout << "ERROR! Attempting to to seek outside the decompressed data." << std::endl;
-					else
-					{
-						std::unique_ptr<unsigned char> _tempBuffer = std::unique_ptr<unsigned char>( new unsigned char [_length]);
-						for (int i = 0; i < _length; i++)
-							_tempBuffer.get()[i] = uncompressedRawData[uncompressedRawData.size() - _dist - 1 + i];
-
-						for (int i = 0; i < _length; i++)
-							uncompressedRawData.push_back(_tempBuffer.get()[i]);
-					}
-
-				}
-				else if (_data == 256) //end of compressed data
-					break;
-				else
-					std::cout << "ERROR! Decoded an unexpected literal value." << std::endl;
-			}
+			DecodeDynamicHuffmanBlock(&uncompressedRawData);
 		}
 			break;
 
