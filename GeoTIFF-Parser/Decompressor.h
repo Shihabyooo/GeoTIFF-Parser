@@ -4,7 +4,7 @@
 
 #include "GeoTIFF_Parser_Globals.h"
 
-enum DeflateBlockType
+enum class DeflateBlockType
 {
 	noCompression, fixedHuffman, dynamicHuffman, unused
 };

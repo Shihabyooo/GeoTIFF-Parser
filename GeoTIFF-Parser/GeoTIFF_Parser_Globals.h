@@ -5,12 +5,12 @@
 
 
 //Structs and enums
-enum BitmapFormat
+enum class BitmapFormat
 {
 	strips, tiles, undefined
 };
 
-enum RasterToModelTransformationMethod
+enum class RasterToModelTransformationMethod
 {
 	tieAndScale, matrix, unknown
 };

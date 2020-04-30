@@ -7,7 +7,7 @@
 //Alternatively, we *could* decompress to disk, then read from that disk into our bitmap. This trades memory use for speed.
 
 
-//This code really needs to be DRY'ed...
+//This code needs some serious DRY'ing...
 
 //=====================================================================================================================================================================
 //-----------------------------------------Uncompressed
@@ -209,7 +209,6 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 
 	delete[] pixel;
 }
-
 
 
 //=====================================================================================================================================================================
@@ -490,7 +489,6 @@ void InitializeHuffmanDecoder()
 {
 	std::cout << "Building dynamic Huffman tree" << std::endl; //test
 
-
 	//read No. of literal/length codes - HLIT
 	for (int i = 0; i < 5; i++)
 		noOfLiteralLengthCodes = ((unsigned char)noOfLiteralLengthCodes) | (GetNextBit() << i); //This conforms to puff.c's approach
@@ -754,7 +752,7 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		//Decompress the block itself.
 		switch (blockType)
 		{
-		case noCompression:
+		case DeflateBlockType::noCompression:
 		{
 			std::cout << "Found non-compressed block." << std::endl;//test
 			//in noCompression case, the byte where the header is located has no other usefull data so we skip it. We don't need to use GetNextBit() here.
@@ -777,20 +775,20 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		}
 			break;
 
-		case fixedHuffman:
+		case DeflateBlockType::fixedHuffman:
 		{
 			std::cout << "Found fixed-Huffman block." << std::endl;//test
 		}
 			break;
 
-		case dynamicHuffman:
+		case DeflateBlockType::dynamicHuffman:
 		{
 			std::cout << "Found dynamic-Huffman block." << std::endl;//test
 			DecodeDynamicHuffmanBlock(&uncompressedRawData);
 		}
 			break;
 
-		case unused:
+		case DeflateBlockType::unused:
 			std::cout << "ERROR! Block compression type is set to reserved value. This is against spec." << std::endl;
 			return;
 			break;
