@@ -17,6 +17,7 @@
 
 bool LoadGeoTIFF(std::string filePath);
 void UnloadGeoTIFF();
+const Array2D * GetPointerToBitmap();
 
 void DisplayTIFFDetailsOnCLI();
 void DisplayGeoTIFFDetailsOnCLI();

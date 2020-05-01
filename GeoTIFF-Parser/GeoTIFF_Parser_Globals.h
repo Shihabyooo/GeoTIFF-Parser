@@ -73,6 +73,9 @@ public:
 	unsigned short int verticalDatum; //Ranges 1-1023 reserved, 1024-32766 EPSG Geographic 2D or Geocentric CRS, 32767 User Defined, 32768-65535 private.
 
 	//TODO add remaining parts relevant to User Defined CRSs (Section 7.5 of standard)
+
+	//Non spec details (i.e. computed details)
+	double cornerNE[2], cornerNW[2], cornerSW[2], cornerSE[2];
 };
 
 struct Tag

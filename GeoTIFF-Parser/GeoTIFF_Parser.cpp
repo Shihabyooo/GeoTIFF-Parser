@@ -1122,6 +1122,10 @@ void DisplayGeoTIFFDetailsOnCLI()
 
 	std::cout << "Vertical Datum: " << geoDetails.verticalDatum << std::endl;
 
+	std::cout << "Bounding Box:" << std::endl;
+	std::cout << "\t" << geoDetails.cornerNW[0] << ", " << geoDetails.cornerNW[1] << "\t\t" << geoDetails.cornerNE[0] << ", " << geoDetails.cornerNE[1] << std::endl;
+	std::cout << "\t" << geoDetails.cornerSW[0] << ", " << geoDetails.cornerSW[1] << "\t\t" << geoDetails.cornerSE[0] << ", " << geoDetails.cornerSE[1] << std::endl;
+
 	std::cout << "=======================================================================================" << std::endl;
 	std::cout << "=======================================================================================" << std::endl;
 }
@@ -1289,6 +1293,38 @@ void DeallocateBitmapMemory()
 	}
 }
 
+bool ComputeGeographicBoundingBox() //technically, we're only computing a 2D rect here...
+{
+	//Current implementation assumes tiepoints in image space is pixel 0,0.
+	if (geoDetails.transformationMethod == RasterToModelTransformationMethod::tieAndScale)
+	{
+		geoDetails.cornerSW[0] = geoDetails.tiePoints[1][0];
+		geoDetails.cornerSW[1] = geoDetails.tiePoints[1][1] - geoDetails.pixelScale[1] * tiffDetails.height;
+
+		geoDetails.cornerNW[0] = geoDetails.tiePoints[1][0];
+		geoDetails.cornerNW[1] = geoDetails.tiePoints[1][1];
+
+		geoDetails.cornerNE[0] = geoDetails.tiePoints[1][0] + geoDetails.pixelScale[0] * tiffDetails.width;
+		geoDetails.cornerNE[1] = geoDetails.tiePoints[1][1];
+
+		geoDetails.cornerSE[0] = geoDetails.tiePoints[1][0] + geoDetails.pixelScale[0] * tiffDetails.width;
+		geoDetails.cornerSE[1] = geoDetails.tiePoints[1][1]- geoDetails.pixelScale[1] * tiffDetails.height;
+
+	}
+	else if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+	{
+		std::cout << "ERROR! Cannot determine the GeoTIFF's bounding box, Matrix Raster-Model transformation method is not supported." << std::endl;
+		return false;
+	}
+	else
+	{
+		std::cout << "ERROR! Cannot determine the GeoTIFF's bounding box, Raster-Model transformation method is not set." << std::endl;
+		return false;
+	}
+	
+	return true;
+}
+
 bool ParseFirstBitmap()
 {
 	if (tiffDetails.planarConfiguration != 1)
@@ -1362,9 +1398,9 @@ bool LoadGeoTIFF(std::string filePath) //Primary entry point
 		return false;
 	}
 
-	//DisplayBitmapOnCLI();
-
 	stream.close();
+
+	ComputeGeographicBoundingBox();
 
 	return true;
 }
@@ -1384,3 +1420,9 @@ void UnloadGeoTIFF()
 	tiffDetails = TIFFDetails();
 	geoDetails = GeoTIFFDetails();
 }
+
+const Array2D * GetPointerToBitmap()
+{
+	return bitMap;
+}
+
