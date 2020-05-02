@@ -573,12 +573,10 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	}
 
 	//test
-	std::cout << "GetFieldIntArry result: " << std::endl;
-	for (int i = 0; i < tag->count; i++)
-		std::cout << outputArray[i] << std::endl;;
-
+	//std::cout << "GetFieldIntArry result: " << std::endl;
+	//for (int i = 0; i < tag->count; i++)
+	//	std::cout << outputArray[i] << std::endl;;
 	//endtest
-
 
 	stream.seekg(currentFileStreamLocation);
 }
@@ -1042,11 +1040,11 @@ void DisplayTIFFDetailsOnCLI()
 		std::cout << "Rows per Strip: " << tiffDetails.rowsPerStrip << std::endl;
 		std::cout << "No. of Pixels per Strip: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
 
-		std::cout << "--------------------" << std::endl;
+	/*	std::cout << "--------------------" << std::endl;
 		std::cout << "Strip offsets:" << std::endl;
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
-		std::cout << "--------------------" << std::endl;
+		std::cout << "--------------------" << std::endl;*/
 		break;
 
 	case BitmapFormat::tiles:
@@ -1057,11 +1055,11 @@ void DisplayTIFFDetailsOnCLI()
 		std::cout << "Tile Width: " << tiffDetails.tileWidth << std::endl;
 		std::cout << "No. of Pixels per Tile: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
 
-		std::cout << "--------------------" << std::endl;
+	/*	std::cout << "--------------------" << std::endl;
 		std::cout << "Tile offsets:" << std::endl;
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
-		std::cout << "--------------------" << std::endl;
+		std::cout << "--------------------" << std::endl;*/
 		break;
 
 	case BitmapFormat::undefined:
@@ -1266,10 +1264,10 @@ bool AllocateBitmapMemory()
 
 	try
 	{
-		bitMap = new Array2D[tiffDetails.height];
-		for (int i = 0; i < tiffDetails.height; i++)
+		bitMap = new Array2D[tiffDetails.width];
+		for (int i = 0; i < tiffDetails.width; i++)
 		{
-			bitMap[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
+			bitMap[i] = Array2D(tiffDetails.height, tiffDetails.samplesPerPixel);
 		}
 	}
 	catch (const std::bad_alloc& e)
@@ -1341,7 +1339,7 @@ bool ParseFirstBitmap()
 	{
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 		{
-			std::cout << "Data for strip no " << i << std::endl;
+			//std::cout << "Data for strip no " << i << std::endl;
 			if (!ParseStripOrTileData(i))
 				return false;
 		}
@@ -1366,7 +1364,7 @@ void DisplayBitmapOnCLI()
 			{
 				if (k > 0)
 					std::cout << ",";
-				std::cout << bitMap[i][j][k];
+				std::cout << bitMap[j][i][k];
 			}
 			std::cout << "\t";
 		}
@@ -1385,9 +1383,6 @@ bool LoadGeoTIFF(std::string filePath) //Primary entry point
 
 	if (!ParseFirstIFDHeader()) //Currently, no error checking is done in ParseFirstIFDHeader(), but future work should include some.
 		return false;
-
-	DisplayTIFFDetailsOnCLI();
-	DisplayGeoTIFFDetailsOnCLI();
 
 	if (!AllocateBitmapMemory())
 		return false;
@@ -1424,5 +1419,17 @@ void UnloadGeoTIFF()
 const Array2D * GetPointerToBitmap()
 {
 	return bitMap;
+}
+
+double GetSample(int x, int y, int sampleOrder)
+{
+
+	if (x > tiffDetails.width || y > tiffDetails.height || sampleOrder > tiffDetails.samplesPerPixel)
+	{
+		std::cout << "ERROR! Attempting to get a sample outside boundary of bitmap." << std::endl;
+		return 0.0f;
+	}
+	else
+		return bitMap[x][y][sampleOrder];
 }
 
