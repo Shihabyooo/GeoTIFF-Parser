@@ -13,7 +13,8 @@ int main()
 	//LoadGeoTIFF("TestData\\alos_UTM_deflate_float32.tif");
 	//LoadGeoTIFF("TestData\\testTIFF.tif");
 	//LoadGeoTIFF("TestData\\testTIFF_32.tif");
-	LoadGeoTIFF("wdem_uncomp.tif");
+	//LoadGeoTIFF("wdem_uncomp.tif");
+	LoadGeoTIFF("wdem_packbits.tif");
 	
 	DisplayGeoTIFFDetailsOnCLI();
 	//DisplayBitmapOnCLI();

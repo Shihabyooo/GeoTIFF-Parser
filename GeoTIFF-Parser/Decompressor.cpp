@@ -105,13 +105,13 @@ void ParseDecompressedDataFromMemory(int stripOrTileID,
 			//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
 	
 			int uv[2]; //coordinates of pixel in imagespace (x, y).
-			uv[0] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //formerly: xCoord.
-			uv[1] = i % tiffDetails.width; //formerly: yCoord.
-	
+			uv[0] = i % tiffDetails.width; //xCoord
+			uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //yCoord.
+
 			//TODO there is a bit in the references that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
 			if (uv[0] > tiffDetails.width || uv[1] > tiffDetails.height)
 			{
-				std::cout << "Found unused pixels." << std::endl;
+				std::cout << "Found unused pixels at i = " << i << std::endl;
 				return;
 			}
 
@@ -163,8 +163,8 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 		//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
 
 		int uv[2]; //coordinates of pixel in imagespace (x, y).
-		uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //formerly: xCoord.
-		uv[0] = i % tiffDetails.width; //formerly: yCoord.
+		uv[0] = i % tiffDetails.width; //xCoord.
+		uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //yCoord.
 
 		//TODO there is a bit in the refences that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
 		if (uv[0] > tiffDetails.width || uv[1] > tiffDetails.height)
