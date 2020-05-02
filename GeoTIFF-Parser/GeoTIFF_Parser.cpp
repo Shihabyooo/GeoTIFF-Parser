@@ -571,13 +571,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 			outputArray[i] = BytesToInt32(buffer);
 		}
 	}
-
-	//test
-	//std::cout << "GetFieldIntArry result: " << std::endl;
-	//for (int i = 0; i < tag->count; i++)
-	//	std::cout << outputArray[i] << std::endl;;
-	//endtest
-
+	
 	stream.seekg(currentFileStreamLocation);
 }
 
@@ -785,12 +779,10 @@ void ProcessTag(const Tag * tag)
 		break;
 	case (273): //stripoffsets
 	{
-		std::cout << "allocating tileStripOffset array of rows: " << tag->count << std::endl; //test
+		//std::cout << "allocating tileStripOffset array of rows: " << tag->count << std::endl; //test
 		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
 		tiffDetails.noOfTilesOrStrips = tag->count;
 		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
-
-		std::cout << "Result using GetFieldIntData() : " << GetFieldIntData(tag) << std::endl;//test
 	}
 		break;
 	case (278): //rowsperstrip
@@ -1339,7 +1331,6 @@ bool ParseFirstBitmap()
 	{
 		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 		{
-			//std::cout << "Data for strip no " << i << std::endl;
 			if (!ParseStripOrTileData(i))
 				return false;
 		}
@@ -1358,9 +1349,9 @@ void DisplayBitmapOnCLI()
 
 	for (int i = 0; i < tiffDetails.height; i++)
 	{
-		for (int j = 0; j < bitMap[i].Rows(); j++)
+		for (int j = 0; j < tiffDetails.width; j++)
 		{
-			for (int k = 0; k < bitMap[i].Columns(); k++)
+			for (int k = 0; k < tiffDetails.samplesPerPixel; k++)
 			{
 				if (k > 0)
 					std::cout << ",";
