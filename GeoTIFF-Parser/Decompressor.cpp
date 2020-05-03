@@ -19,7 +19,6 @@ void SetBitmapPixel(int _uv[2], const double * const _pixel, Array2D * const _bi
 	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
 	{
 		_bitMap[_uv[0]][_uv[1]][i] = _pixel[i];
-		//_bitMap[_uv[0]].SetValue(_uv[1], i, _pixel[i]);
 		
 		//if (_uv[0] >= tiffDetails.width - 1 && _uv[1] >= tiffDetails.height - 1) //test
 			//std::cout << "Set sample: " << _uv[0] << ", " << _uv[1] << ", " << i << ": " << _pixel[i] << std::endl; //test
@@ -37,7 +36,7 @@ double GetIntSampleCurrentStreamPosition() //ONLY FOR USE WITH UNCOMPRESSED DATA
 	return result;
 }
 
-double GetIntSamepleFromMemoryData(unsigned char * data, unsigned long int position)
+double GetIntSamepleFromMemoryData(const unsigned char * data, unsigned long int position)
 {
 	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
 	char * sample = new char[_bytesPerSample];
@@ -53,7 +52,7 @@ double GetIntSamepleFromMemoryData(unsigned char * data, unsigned long int posit
 	return result;
 }
 
-double GetFloatSampleFromMemoryData(unsigned char * data, unsigned long int position)
+double GetFloatSampleFromMemoryData(const unsigned char * data, unsigned long int position)
 {
 	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
 	char * sample = new char[_bytesPerSample];
@@ -75,7 +74,7 @@ double GetFloatSampleFromMemoryData(unsigned char * data, unsigned long int posi
 	return result;
 }
 
-double GetDoubleSampleFromMemoryData(unsigned char * data, unsigned long int position)
+double GetDoubleSampleFromMemoryData(const unsigned char * data, unsigned long int position)
 {
 	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
 	char * sample = new char[_bytesPerSample];
@@ -96,7 +95,7 @@ double GetDoubleSampleFromMemoryData(unsigned char * data, unsigned long int pos
 
 void ParseDecompressedDataFromMemory(int stripOrTileID,
 										Array2D * const _bitMap,
-										unsigned char * data, //data container.
+										const unsigned char * data, //raw data container.
 										unsigned long int noOfPixelsToParse, //For Compression = 1 TIFFs, this should equal the entire pixel count of the strip/tile.
 										unsigned long int firstPixelOrder = 0) //relative to the current strip/tile. Used for when parsing data mid-strip or mid-tile (like in uncompressed blocks in deflate streams.)
 {	
@@ -209,7 +208,6 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 
 	delete[] pixel;
 }
-
 
 //=====================================================================================================================================================================
 //-----------------------------------------Deflate
@@ -812,18 +810,20 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 #pragma region PackBits Decompression
 void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 {
-	std::cout << "Attempted to decompress PackBits data. Strip " << stripOrTileID << " of " << tiffDetails.noOfTilesOrStrips << std::endl; //test
+	//std::cout << "Attempted to decompress PackBits data. Strip " << stripOrTileID << " of " << tiffDetails.noOfTilesOrStrips << std::endl; //test
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
 
 	//estimate number of bytes we excpect to have
+	//I couldn't figure out the correct way to estimate the uncompressed byte count (the references aren't helpful), the loops bellow always overshoots the expected count. So I use 
+	//the logical estimate (noOfBytesInStrip), which is the maximum byte count the ParseDecompressedDataFromMemory() function will make use for anyway, and have a seperate buffer
+	//called noOfBytes, now set to 2x the logical est. and will be used to store the decompressed bytes. This is memory inefficient, but it works...
 
 	unsigned long int noOfBytesInStrip = tiffDetails.rowsPerStrip * (tiffDetails.width + 7) * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
 	//unsigned long int noOfBytes = tiffDetails.noOfPixelsPerTileStrip * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
-	//unsigned long int noOfBytes = tiffDetails.height * (tiffDetails.width + 7) * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
 	//unsigned long int noOfBytes = tiffDetails.rowsPerStrip * (tiffDetails.width + 7) * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
 	unsigned long int noOfBytes =  2 * noOfBytesInStrip;
-	std::cout << "noOfBytes: " << noOfBytes << std::endl; //test
-	std::cout << "noOfBytesInStrip: " << noOfBytesInStrip << std::endl; //test
+	//std::cout << "noOfBytes: " << noOfBytes << std::endl; //test
+	//std::cout << "noOfBytesInStrip: " << noOfBytesInStrip << std::endl; //test
 
 	unsigned long int counter = 0; //counter is used to track of how many bytes we've extracted.
 	std::unique_ptr<unsigned char> uncompressedRawData = std::unique_ptr<unsigned char>(new unsigned char[noOfBytes]);
@@ -864,10 +864,10 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 		}
 	}
 	
-	std::cout << "counter: " << counter << std::endl;//test
+	//std::cout << "counter: " << counter << std::endl;//test
 
 	ParseDecompressedDataFromMemory(stripOrTileID, _bitMap, uncompressedRawData.get(), tiffDetails.noOfPixelsPerTileStrip, 0);
 
-	std::cout << "Finished decompression." << std::endl;
+	//std::cout << "Finished decompression." << std::endl;
 }
 #pragma endregion

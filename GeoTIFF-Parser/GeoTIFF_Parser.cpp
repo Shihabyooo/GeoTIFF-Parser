@@ -983,7 +983,9 @@ bool ParseStripOrTileData(int stripOrTileID)
 		break;
 
 	case (8): //Deflate
-		ParseDeflateStripOrTileData(stripOrTileID, bitMap);
+		//ParseDeflateStripOrTileData(stripOrTileID, bitMap);
+		std::cout << "ERROR! Unsupported compression algorithm - Deflate" << std::endl;
+		return false;
 		break;
 
 	case (9): //"Defined by TIFF-F and TIFF-FX standard (RFC 2301) as ITU-T Rec. T.82 coding, using ITU-T Rec. T.85 (which boils down to JBIG on black and white). "
@@ -1363,7 +1365,7 @@ void DisplayBitmapOnCLI()
 	}
 }
 
-bool LoadGeoTIFF(std::string filePath) //Primary entry point
+bool LoadGeoTIFF(const std::string filePath) //Primary entry point
 {
 	
 	if (!OpenTIFFFile(filePath))
