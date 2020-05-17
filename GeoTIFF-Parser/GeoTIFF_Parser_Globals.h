@@ -18,8 +18,8 @@ enum class RasterToModelTransformationMethod
 struct TIFFDetails
 {
 public:
-	int width;
-	int height;
+	unsigned long int width;
+	unsigned long int height;
 
 	int samplesPerPixel;
 	int bitsPerSample;

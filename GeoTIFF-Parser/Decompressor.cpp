@@ -14,7 +14,7 @@
 //=====================================================================================================================================================================
 
 
-void SetBitmapPixel(int _uv[2], const double * const _pixel, Array2D * const _bitMap)
+void SetBitmapPixel(unsigned long int _uv[2], const double * const _pixel, Array2D * const _bitMap)
 {
 	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
 	{
@@ -93,7 +93,7 @@ double GetDoubleSampleFromMemoryData(const unsigned char * data, unsigned long i
 	return result;
 }
 
-void ParseDecompressedDataFromMemory(int stripOrTileID,
+void ParseDecompressedDataFromMemory(unsigned int stripOrTileID,
 										Array2D * const _bitMap,
 										const unsigned char * data, //raw data container.
 										unsigned long int noOfPixelsToParse, //For Compression = 1 TIFFs, this should equal the entire pixel count of the strip/tile.
@@ -101,14 +101,14 @@ void ParseDecompressedDataFromMemory(int stripOrTileID,
 {	
 		double * pixel = new double[tiffDetails.samplesPerPixel];
 	
-		for (int i = firstPixelOrder; i < noOfPixelsToParse; i++)
+		for (unsigned long int i = firstPixelOrder; i < noOfPixelsToParse; i++)
 		{
 			//cache the pixel's location in image. Note: These formulae are only tested for stripped images.
 			//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
 	
-			int uv[2]; //coordinates of pixel in imagespace (x, y).
+			unsigned long int uv[2]; //coordinates of pixel in imagespace (x, y).
 			uv[0] = i % tiffDetails.width; //xCoord
-			uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //yCoord.
+			uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + static_cast<unsigned long int>(floor((float)i / (float)tiffDetails.width)); //yCoord.
 
 			//TODO there is a bit in the references that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
 			if (uv[0] >= tiffDetails.width || uv[1] >= tiffDetails.height)
@@ -117,7 +117,7 @@ void ParseDecompressedDataFromMemory(int stripOrTileID,
 				return;
 			}
 
-			for (int j = 0; j < tiffDetails.samplesPerPixel; j++)
+			for (unsigned long int j = 0; j < tiffDetails.samplesPerPixel; j++)
 			{
 				switch (tiffDetails.sampleFormat)
 				{
@@ -156,14 +156,14 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 
 	double * pixel = new double[tiffDetails.samplesPerPixel];
 
-	for (int i = 0; i < tiffDetails.noOfPixelsPerTileStrip; i++)
+	for (unsigned long int i = 0; i < tiffDetails.noOfPixelsPerTileStrip; i++)
 	{
 		//cache the pixel's location in image. Note: These formulae are only tested for stripped images.
 		//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
 
-		int uv[2]; //coordinates of pixel in imagespace (x, y).
+		unsigned long int uv[2]; //coordinates of pixel in imagespace (x, y).
 		uv[0] = i % tiffDetails.width; //xCoord.
-		uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + floor((float)i / (float)tiffDetails.width); //yCoord.
+		uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + static_cast<unsigned long>(floor((float)i / (float)tiffDetails.width)); //yCoord.
 
 		//TODO there is a bit in the refences that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
 		if (uv[0] > tiffDetails.width || uv[1] > tiffDetails.height)
@@ -172,7 +172,7 @@ void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMa
 			return;
 		}
 
-		for (int j = 0; j < tiffDetails.samplesPerPixel; j++)
+		for (unsigned long int j = 0; j < tiffDetails.samplesPerPixel; j++)
 		{
 			switch (tiffDetails.sampleFormat)
 			{
@@ -570,7 +570,8 @@ void DecodeDynamicHuffmanBlock(std::vector<unsigned char> * uncompressedRawData)
 	//at this point, the stream should be at the begining of the compressed data.
 	while (!stream.eof())
 	{
-		unsigned short int _data;
+		//unsigned short int _data;
+		char _data; //TODO test this (Previous failed experiment were using the commented out test above, I've changed this while cleaning compiler warnings, but I haven't tested it yet.
 		_data = DecodeNextValue(litLengthHuffmanTree.get());
 
 		if (_data < 256) //literal.

@@ -508,7 +508,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	if (tag->fieldTypeID == 3) //short
 	{
 		char buffer[2];
-		for (int i = 0; i < tag->count; i++)
+		for (unsigned long int i = 0; i < tag->count; i++) //all arithmatic uses of i bellow are always positive, safe to use unsigned integers.
 		{
 			if (isOffsetData)
 				stream.read(buffer, sizeof(buffer));
@@ -533,7 +533,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	else if (tag->fieldTypeID == 4) //long
 	{
 		char buffer[4];
-		for (int i = 0; i < tag->count; i++)
+		for (unsigned long int i = 0; i < tag->count; i++)
 		{
 			/*if (isOffsetData)
 			{
@@ -592,7 +592,7 @@ short int GetGeoKeyIntData(const GeoKey * geoKey, short int * dataArray, int val
 
 double GetGeoKeyDoubleData(const GeoKey * geoKey, double * dataArray, int valueOrderInKey = 0)
 {
-	short int result;
+	double result;
 	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
 	{						//are of type short (not used here, but can cause issues) and that the count = 1 (so we return a single value)
 		result = geoKey->offsetValue;
@@ -835,7 +835,7 @@ void ProcessTag(const Tag * tag)
 			double buffer;
 
 			stream.seekg(tag->offsetValue);
-			for (int i = 0; i < tag->count; i++)
+			for (unsigned long int i = 0; i < tag->count; i++)
 			{
 				stream.read((char*)&buffer, sizeof(buffer));
 				doubleParamsData.get()[i] = buffer;
@@ -857,7 +857,7 @@ void ProcessTag(const Tag * tag)
 			stream.seekg(tag->offsetValue);
 
 			char buffer = ' ';
-			for (int i = 0; i < tag->count; i++)
+			for (unsigned long int i = 0; i < tag->count; i++)
 			{
 				stream.read(&buffer, sizeof(buffer));
 				asciiParamsData.get()[i] = buffer;
@@ -1137,7 +1137,7 @@ bool OpenTIFFFile(std::string filePath)
 
 bool ParseTIFFHeader()
 {
-	char byte[1];
+	//char byte[1];
 	char word[2];
 	char dword[4];
 	//char qword[8];
@@ -1184,7 +1184,7 @@ bool ParseTIFFHeader()
 
 bool ParseFirstIFDHeader()
 {
-	char byte[1];
+	//char byte[1];
 	char word[2];
 	char dword[4];
 
@@ -1259,7 +1259,7 @@ bool AllocateBitmapMemory()
 	try
 	{
 		bitMap = new Array2D[tiffDetails.width];
-		for (int i = 0; i < tiffDetails.width; i++)
+		for (unsigned long int i = 0; i < tiffDetails.width; i++)
 		{
 			bitMap[i] = Array2D(tiffDetails.height, tiffDetails.samplesPerPixel);
 		}
@@ -1278,7 +1278,7 @@ void DeallocateBitmapMemory()
 {
 	if (bitMap != NULL)
 	{
-		for (int i = 0; i < tiffDetails.height; i++)
+		for (unsigned long int i = 0; i < tiffDetails.height; i++)
 			bitMap[i].~Array2D();
 		delete[] bitMap;
 		bitMap = NULL;
@@ -1349,9 +1349,9 @@ void DisplayBitmapOnCLI()
 		return;
 	}
 
-	for (int i = 0; i < tiffDetails.height; i++)
+	for (unsigned long int i = 0; i < tiffDetails.height; i++)
 	{
-		for (int j = 0; j < tiffDetails.width; j++)
+		for (unsigned long int j = 0; j < tiffDetails.width; j++)
 		{
 			for (int k = 0; k < tiffDetails.samplesPerPixel; k++)
 			{
@@ -1414,7 +1414,7 @@ const Array2D * GetPointerToBitmap()
 	return bitMap;
 }
 
-double GetSample(int x, int y, int sampleOrder)
+double GetSample(unsigned long int x, unsigned long int y, unsigned int sampleOrder)
 {
 
 	if (x > tiffDetails.width || y > tiffDetails.height || sampleOrder > tiffDetails.samplesPerPixel)

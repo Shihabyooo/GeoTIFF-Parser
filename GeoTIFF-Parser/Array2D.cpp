@@ -99,11 +99,11 @@ void Array2D::operator=(std::vector<std::vector<double>>& sourceVec)
 	DeleteContent();
 
 	//First, we determine the number of columns = largest row size (longest sub-vector)
-	int maxRowSize = 0;
+	size_t maxRowSize = 0;
 
 	for (std::vector<std::vector<double>>::iterator it = sourceVec.begin(); it != sourceVec.end(); ++it)
 	{
-		int currentRowSize = it->size();
+		size_t currentRowSize = it->size();
 		if (currentRowSize > maxRowSize)
 			maxRowSize = currentRowSize;
 	}
