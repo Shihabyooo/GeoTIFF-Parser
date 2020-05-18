@@ -609,7 +609,7 @@ std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, char * dataAr
 {
 	std::string result = "";
 
-	for (int i = geoKey->offsetValue; i < geoKey->offsetValue + geoKey->count; i++)
+	for (unsigned int i = geoKey->offsetValue; i < geoKey->offsetValue + geoKey->count; i++)
 		result += dataArray[i];
 
 	result += '\0';
@@ -1365,9 +1365,14 @@ void DisplayBitmapOnCLI()
 	}
 }
 
-bool LoadGeoTIFF(const std::string filePath) //Primary entry point
+bool LoadGeoTIFFHeaders(const char * filePath) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
 {
-	
+	std::string path(filePath);
+	return LoadGeoTIFFHeaders(path);
+}
+
+bool LoadGeoTIFFHeaders(const std::string &filePath) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
+{
 	if (!OpenTIFFFile(filePath))
 		return false;
 
@@ -1375,6 +1380,20 @@ bool LoadGeoTIFF(const std::string filePath) //Primary entry point
 		return false;
 
 	if (!ParseFirstIFDHeader()) //Currently, no error checking is done in ParseFirstIFDHeader(), but future work should include some.
+		return false;
+
+	return true;
+}
+
+bool LoadGeoTIFF(const char * filePath) //Load entire GeoTIFF file -including bitmap- to memory.
+{
+	std::string path(filePath);
+	return LoadGeoTIFF(path);
+}
+
+bool LoadGeoTIFF(const std::string &filePath) //Load entire GeoTIFF file -including bitmap- to memory.
+{
+	if (!LoadGeoTIFFHeaders(filePath)) //file open-ability check is done inside LoadGeoTIFFHeaders().
 		return false;
 
 	if (!AllocateBitmapMemory())
@@ -1425,4 +1444,3 @@ double GetSample(unsigned long int x, unsigned long int y, unsigned int sampleOr
 	else
 		return bitMap[x][y][sampleOrder];
 }
-
