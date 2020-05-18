@@ -11,8 +11,8 @@
 #include "GeoTIFF_Parser_Globals.h"
 #include "Decompressor.h"
 
-bool LoadGeoTIFFHeaders(const char * filePath);
-bool LoadGeoTIFFHeaders(const std::string &filePath);
+bool LoadGeoTIFFHeaders(const char * filePath, bool closeStreamAtEnd = true);
+bool LoadGeoTIFFHeaders(const std::string &filePath, bool closeStreamAtEnd = true);
 bool LoadGeoTIFF(const char * filePath);
 bool LoadGeoTIFF(const std::string &filePath);
 void UnloadGeoTIFF();

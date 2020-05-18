@@ -1,7 +1,7 @@
 #include "GeoTIFF_Parser.h"
 
 //variables
-bool viewTagsInCLI = false;
+bool viewTagsInCLI = true;
 unsigned long int firstIFDOffset;
 Array2D * bitMap = NULL; //the actual holder of the geoTIFF raster's data.
 
@@ -575,7 +575,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	stream.seekg(currentFileStreamLocation);
 }
 
-short int GetGeoKeyIntData(const GeoKey * geoKey, short int * dataArray, int valueOrderInKey = 0)
+short int GetGeoKeyIntData(const GeoKey * geoKey, const short int * dataArray, int valueOrderInKey = 0)
 {
 	short int result;
 	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
@@ -587,10 +587,11 @@ short int GetGeoKeyIntData(const GeoKey * geoKey, short int * dataArray, int val
 		result = dataArray[geoKey->offsetValue + valueOrderInKey];
 	}
 
+	std::cout << "GetGeoKeyIntData() returning: " << result << std::endl; //test
 	return result;
 }
 
-double GetGeoKeyDoubleData(const GeoKey * geoKey, double * dataArray, int valueOrderInKey = 0)
+double GetGeoKeyDoubleData(const GeoKey * geoKey, const double * dataArray, int valueOrderInKey = 0)
 {
 	double result;
 	if (dataArray == NULL || geoKey->tiffTagLocation == 0) //This assumes that this function is called only when value is set in a key's valueOffset field. This assumption also includes the GeoTIFF spec that values stored in key offsetValue
@@ -599,18 +600,24 @@ double GetGeoKeyDoubleData(const GeoKey * geoKey, double * dataArray, int valueO
 	}
 	else
 	{
+		std::cout << "Getting a double value of order: " << geoKey->offsetValue + valueOrderInKey << std::endl; //test
 		result = dataArray[geoKey->offsetValue + valueOrderInKey];
 	}
 
 	return result;
 }
 
-std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, char * dataArray)
+std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, const char * dataArray)
 {
 	std::string result = "";
 
+	std::cout << "ExtractAndMergeMultiASCIIValues() recieved a geoKey with offset: " << geoKey->offsetValue << std::endl; //test
+
 	for (unsigned int i = geoKey->offsetValue; i < geoKey->offsetValue + geoKey->count; i++)
+	{
+		std::cout << "Getting a ascii value of order: " << i << std::endl; //test
 		result += dataArray[i];
+	}
 
 	result += '\0';
 
@@ -618,7 +625,7 @@ std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, char * dataAr
 }
 
 template <typename T>
-void ProcessGeoKey(const GeoKey * geoKey, T * dataArray = NULL)
+void ProcessGeoKey(const GeoKey * geoKey, const T * dataArray = NULL)
 {
 	switch (geoKey->keyID)
 	{
@@ -701,10 +708,10 @@ void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
 		geoKey.get()->tiffTagLocation = BytesToInt16(word);
 		//-----------------------------------------
 		stream.read(word, sizeof(word));
-		geoKey.get()->count = BytesToInt32(word);
+		geoKey.get()->count = BytesToInt16(word);
 		//-----------------------------------------
 		stream.read(word, sizeof(word));
-		geoKey.get()->offsetValue = BytesToInt32(word);
+		geoKey.get()->offsetValue = BytesToInt16(word);
 
 
 		if (viewTagsInCLI)
@@ -833,6 +840,7 @@ void ProcessTag(const Tag * tag)
 			//extract the params stored in this tag.
 			std::unique_ptr<double> doubleParamsData = std::unique_ptr<double>(new double[tag->count]);
 			double buffer;
+			std::cout << "count of doubleParamsData: " << tag->count <<std::endl; //test
 
 			stream.seekg(tag->offsetValue);
 			for (unsigned long int i = 0; i < tag->count; i++)
@@ -844,6 +852,7 @@ void ProcessTag(const Tag * tag)
 			//Loop over keys stored in doubleParamsGeoKeys and process them.
 			for (std::vector<GeoKey>::iterator it = doubleParamsGeoKeys.begin(); it < doubleParamsGeoKeys.end(); ++it)
 			{
+				std::cout << "Attempting to process a Double geokey of offset: " << it->offsetValue << ", and count: " << it->count << std::endl; //test
 				ProcessGeoKey(&(*it), doubleParamsData.get());
 			}
 		}
@@ -853,19 +862,24 @@ void ProcessTag(const Tag * tag)
 		{
 			//extract the params stored in this tag.
 			std::unique_ptr<char> asciiParamsData = std::unique_ptr<char>(new char[tag->count]);
+			std::cout << "count of asciiParamsData: " << tag->count << std::endl;//test
 
 			stream.seekg(tag->offsetValue);
 
 			char buffer = ' ';
 			for (unsigned long int i = 0; i < tag->count; i++)
 			{
+
 				stream.read(&buffer, sizeof(buffer));
 				asciiParamsData.get()[i] = buffer;
 			}
 
 			//Loop over keys stored in asciiParamsGeoKeys and process them.
 			for (std::vector<GeoKey>::iterator it = asciiParamsGeoKeys.begin(); it < asciiParamsGeoKeys.end(); ++it)
+			{
+				std::cout << "Attempting to process an ASCII geokey of offset: " << it->offsetValue << ", and count: " << it->count << std::endl; //test
 				ProcessGeoKey(&(*it), asciiParamsData.get());
+			}
 		}
 		break;
 	case (33550): //ModelPixelScaleTag
@@ -1124,6 +1138,7 @@ void DisplayGeoTIFFDetailsOnCLI()
 
 bool OpenTIFFFile(std::string filePath)
 {
+	stream.clear();
 	stream.open(filePath, std::ios::binary | std::ios::in);
 
 	if (!stream.is_open())
@@ -1365,22 +1380,35 @@ void DisplayBitmapOnCLI()
 	}
 }
 
-bool LoadGeoTIFFHeaders(const char * filePath) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
+bool LoadGeoTIFFHeaders(const char * filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
 {
 	std::string path(filePath);
 	return LoadGeoTIFFHeaders(path);
 }
 
-bool LoadGeoTIFFHeaders(const std::string &filePath) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
+bool LoadGeoTIFFHeaders(const std::string &filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
 {
 	if (!OpenTIFFFile(filePath))
 		return false;
 
 	if (!ParseTIFFHeader())
+	{
+		if (stream.is_open())
+			stream.close();
 		return false;
+	}
 
 	if (!ParseFirstIFDHeader()) //Currently, no error checking is done in ParseFirstIFDHeader(), but future work should include some.
+	{
+
+		if (stream.is_open())
+			stream.close();
 		return false;
+	}
+
+	if (closeStreamAtEnd && stream.is_open())
+		stream.close();
+
 
 	return true;
 }
@@ -1393,11 +1421,15 @@ bool LoadGeoTIFF(const char * filePath) //Load entire GeoTIFF file -including bi
 
 bool LoadGeoTIFF(const std::string &filePath) //Load entire GeoTIFF file -including bitmap- to memory.
 {
-	if (!LoadGeoTIFFHeaders(filePath)) //file open-ability check is done inside LoadGeoTIFFHeaders().
+	if (!LoadGeoTIFFHeaders(filePath, false)) //file open-ability check is done inside LoadGeoTIFFHeaders().
 		return false;
 
 	if (!AllocateBitmapMemory())
+	{
+		if (stream.is_open())
+			stream.close();
 		return false;
+	}
 
 	if (!ParseFirstBitmap())
 	{

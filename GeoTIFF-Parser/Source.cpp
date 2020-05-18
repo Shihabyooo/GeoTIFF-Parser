@@ -3,7 +3,14 @@
 
 int main()
 {
+	//char test;
+	//std::cout << "start" << std::endl; //test for debugging.
+	//std::cin >> test;
+	//std::cout << "starting" << std::endl;
+	//LoadGeoTIFFHeaders("C:\\Users\\Shihabyooo\\source\\repos\\GeoTIFF-Parser\\x64\\Release\\TestData\\alos_UTM_nocomp_int16.tif");
+	//end test
 
+	
 	LoadGeoTIFF("TestData\\alos_UTM_nocomp_int16.tif");
 	//LoadGeoTIFF("TestData\\alos_UTM_packbits_int16.tif");
 	//LoadGeoTIFF("TestData\\alos_UTM_packbits_float64.tif");
@@ -17,6 +24,7 @@ int main()
 	//LoadGeoTIFF("wdem_uncomp.tif");
 	//LoadGeoTIFF("wdem_packbits.tif");
 	
+	DisplayTIFFDetailsOnCLI();
 	DisplayGeoTIFFDetailsOnCLI();
 	DisplayBitmapOnCLI();
 
