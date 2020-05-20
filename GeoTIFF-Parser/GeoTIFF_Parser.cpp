@@ -678,14 +678,17 @@ void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
 	stream.seekg(geoKeyDirectoryTag->offsetValue, stream.beg);
 
 	char word[2];
-	unsigned short int keyDirectoryVersion, keyRevision, minorRevision, numberOfKeys;
+	unsigned int keyDirectoryVersion, keyRevision, minorRevision, numberOfKeys;
 
 	stream.read(word, sizeof(word));
 	keyDirectoryVersion = BytesToInt16(word);
+	
 	stream.read(word, sizeof(word));
 	keyRevision = BytesToInt16(word);
+	
 	stream.read(word, sizeof(word));
 	minorRevision = BytesToInt16(word);
+	
 	stream.read(word, sizeof(word));
 	numberOfKeys = BytesToInt16(word);
 

@@ -843,7 +843,7 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 			//2: Read a length of _header+1 from file, load it to memory, and have a loop copying from that memory to uncompressedRawData (faster)
 			//3: Read directly from file to uncompressedRawData (fastest, yet).
 
-			stream.read((char*)&uncompressedRawData.get()[counter], (unsigned short int)_header + 1);
+			stream.read((char*)&uncompressedRawData.get()[counter], (unsigned int)_header + 1);
 			counter += _header+1;
 		}
 		else if (_header <= -1 && _header >= -127) //read one byte, repeast 1 - n times.

@@ -8,22 +8,22 @@ GeoTIFFDetails geoDetails;
 long int BytesToInt32(const char bytes[4])
 {
 	if (isBigEndian)
-		return (((unsigned char)bytes[0] << 24) | ((unsigned char)bytes[1] << 16) | ((unsigned char)bytes[2] << 8) | (unsigned char)bytes[3]);
+		return ((static_cast<unsigned char>(bytes[0]) << 24) | (static_cast<unsigned char>(bytes[1]) << 16) | (static_cast<unsigned char>(bytes[2]) << 8) | static_cast<unsigned char>(bytes[3]));
 	else
-		return (((unsigned char)bytes[3] << 24) | ((unsigned char)bytes[2] << 16) | ((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
+		return ((static_cast<unsigned char>(bytes[3]) << 24) | (static_cast<unsigned char>(bytes[2]) << 16) | (static_cast<unsigned char>(bytes[1]) << 8) | static_cast<unsigned char>(bytes[0]));
 }
 
 int BytesToInt16(const char bytes[2])
 {
 	if (isBigEndian)
-		return (((unsigned char)bytes[0] << 8) | (unsigned char)bytes[1]);
+		return ((static_cast<unsigned char>(bytes[0]) << 8) | static_cast<unsigned char>(bytes[1]));
 	else
-		return (((unsigned char)bytes[1] << 8) | (unsigned char)bytes[0]);
+		return ((static_cast<unsigned char>(bytes[1]) << 8) | static_cast<unsigned char>(bytes[0]));
 }
 
 short int BytesToInt8(const char bytes[1])
 {
-	return (unsigned char)bytes[0];
+	return static_cast<unsigned char>(bytes[0]);
 }
 
 long int BytesToIntX(const char bytes[4], int intSize) //int size in bits
