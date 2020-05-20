@@ -21,27 +21,27 @@ public:
 	unsigned long int width;
 	unsigned long int height;
 
-	int samplesPerPixel;
-	int bitsPerSample;
-	int extraSampleType;
-	int sampleFormat;
-	int compression;
+	unsigned int samplesPerPixel;
+	unsigned int bitsPerSample;
+	unsigned int extraSampleType;
+	unsigned int sampleFormat;
+	unsigned int compression;
 
-	int noOfIFDs;
+	unsigned int noOfIFDs;
 
-	int photometricInterpretation;
-	int planarConfiguration;
+	unsigned int photometricInterpretation;
+	unsigned int planarConfiguration;
 
-	int noOfPixelsPerTileStrip;
+	unsigned int noOfPixelsPerTileStrip;
 
 	BitmapFormat bitmapFormat = BitmapFormat::undefined;
 
 	std::unique_ptr<long int> tileStripOffset; //the offsets for the the tiles or strips.
-	long int noOfTilesOrStrips;
-	long int tileStripByteCount;
-	long int rowsPerStrip;
-	long int tileHeight;
-	long int tileWidth;
+	unsigned long int noOfTilesOrStrips;
+	unsigned long int tileStripByteCount;
+	unsigned long int rowsPerStrip;
+	unsigned long int tileHeight;
+	unsigned long int tileWidth;
 };
 
 struct GeoTIFFDetails
@@ -86,7 +86,7 @@ struct Tag
 	unsigned long int offsetValue;
 
 	//TODO tagLocationOnFile has no more use. Remove it and its references.
-	unsigned long int tagLocationOnFile; //location of the tag inside the file, this isn't usefull for TIFF parsing, but used in GeoTIFF's geokey parsing.
+	std::streampos tagLocationOnFile; //location of the tag inside the file, this isn't usefull for TIFF parsing, but used in GeoTIFF's geokey parsing.
 };
 
 struct GeoKey

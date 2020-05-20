@@ -16,7 +16,7 @@
 
 void SetBitmapPixel(unsigned long int _uv[2], const double * const _pixel, Array2D * const _bitMap)
 {
-	for (int i = 0; i < tiffDetails.samplesPerPixel; i++)
+	for (unsigned long int i = 0; i < tiffDetails.samplesPerPixel; i++)
 	{
 		_bitMap[_uv[0]][_uv[1]][i] = _pixel[i];
 		

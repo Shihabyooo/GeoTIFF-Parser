@@ -455,7 +455,7 @@ long int GetFieldIntData(const Tag * tag)
 		//std::cout << "Field value size is greater than header value field capacity. These bytes are pointers." << std::endl; //test
 		isOffsetData = true;
 	}
-	long int currentFileStreamLocation = stream.tellg();
+	std::streampos currentFileStreamLocation = stream.tellg();
 
 	long int value;
 
@@ -500,7 +500,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 		isOffsetData = true;
 	}
 
-	long int currentFileStreamLocation = stream.tellg();
+	std::streampos currentFileStreamLocation = stream.tellg();
 
 	if (isOffsetData)
 		stream.seekg(tag->offsetValue);
@@ -699,7 +699,7 @@ void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
 
 	//TODO add a check here to make sure versions match the ones adopted in this code. Else stop execution of remainin of program (a universal bool and int for error code that LoadTIFF() checks after processing tags? Throw Exception?)
 
-	for (int i = 0; i < numberOfKeys; i++)
+	for (unsigned long int i = 0; i < numberOfKeys; i++)
 	{
 		std::unique_ptr<GeoKey> geoKey = std::unique_ptr<GeoKey>(new GeoKey);
 
@@ -1215,7 +1215,7 @@ bool ParseFirstIFDHeader()
 	short int noOfTagsInIFD = BytesToInt16(word);
 	//std::cout << "Number of IFD enteries: " << noOfTagsInIFD << std::endl;
 
-	unsigned long int endOfLastTag = stream.tellg(); //Because ProcessTag() may modify the position in the stream and is called at end of loop, any further reading of tags wouldn't be correct.
+	std::streampos endOfLastTag = stream.tellg(); //Because ProcessTag() may modify the position in the stream and is called at end of loop, any further reading of tags wouldn't be correct.
 													//So, we cache the position of the tag end before we call ProcessTag()
 	for (int i = 0; i < noOfTagsInIFD; i++)
 	{
@@ -1296,8 +1296,9 @@ void DeallocateBitmapMemory()
 {
 	if (bitMap != NULL)
 	{
-		for (unsigned long int i = 0; i < tiffDetails.height; i++)
+		for (unsigned long int i = 0; i < tiffDetails.width; i++)
 			bitMap[i].~Array2D();
+		
 		delete[] bitMap;
 		bitMap = NULL;
 	}
@@ -1349,7 +1350,7 @@ bool ParseFirstBitmap()
 	}
 	else
 	{
-		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+		for (unsigned long int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
 		{
 			if (!ParseStripOrTileData(i))
 				return false;
@@ -1371,7 +1372,7 @@ void DisplayBitmapOnCLI()
 	{
 		for (unsigned long int j = 0; j < tiffDetails.width; j++)
 		{
-			for (int k = 0; k < tiffDetails.samplesPerPixel; k++)
+			for (unsigned long int k = 0; k < tiffDetails.samplesPerPixel; k++)
 			{
 				if (k > 0)
 					std::cout << ",";
