@@ -14,7 +14,7 @@
 //=====================================================================================================================================================================
 
 
-void SetBitmapPixel(unsigned long int _uv[2], const double * const _pixel, Array2D * const _bitMap)
+void SetBitmapPixel(unsigned long int _uv[2], const double * const _pixel, Matrix_f32 * const _bitMap)
 {
 	for (unsigned long int i = 0; i < tiffDetails.samplesPerPixel; i++)
 	{
@@ -94,7 +94,7 @@ double GetDoubleSampleFromMemoryData(const unsigned char * data, unsigned long i
 }
 
 void ParseDecompressedDataFromMemory(unsigned int stripOrTileID,
-										Array2D * const _bitMap,
+										Matrix_f32 * const _bitMap,
 										const unsigned char * data, //raw data container.
 										unsigned long int noOfPixelsToParse, //For Compression = 1 TIFFs, this should equal the entire pixel count of the strip/tile.
 										unsigned long int firstPixelOrder = 0) //relative to the current strip/tile. Used for when parsing data mid-strip or mid-tile (like in uncompressed blocks in deflate streams.)
@@ -150,7 +150,7 @@ void ParseDecompressedDataFromMemory(unsigned int stripOrTileID,
 		delete[] pixel;
 }
 
-void ParseUncompressedStripOrTileData(int stripOrTileID,  Array2D * const _bitMap)
+void ParseUncompressedStripOrTileData(int stripOrTileID,  Matrix_f32 * const _bitMap)
 {
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
 
@@ -680,7 +680,7 @@ void DecodeDynamicHuffmanBlock(std::vector<unsigned char> * uncompressedRawData)
 	}
 }
 
-void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
+void ParseDeflateStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
 {
 
 	std::cout << "Attempting to decompress a Deflate data" << std::endl;
@@ -809,7 +809,7 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
 //-----------------------------------------PackBits
 //=====================================================================================================================================================================
 #pragma region PackBits Decompression
-void ParsePackBitsStripOrTileData(int stripOrTileID, Array2D * const _bitMap)
+void ParsePackBitsStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
 {
 	//std::cout << "Attempted to decompress PackBits data. Strip " << stripOrTileID << " of " << tiffDetails.noOfTilesOrStrips << std::endl; //test
 	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);

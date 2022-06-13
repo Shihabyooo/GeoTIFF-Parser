@@ -7,7 +7,6 @@
 #include <fstream>
 #include <memory>
 
-#include "Array2D.h"
 #include "GeoTIFF_Parser_Globals.h"
 #include "Decompressor.h"
 
@@ -16,7 +15,7 @@ bool LoadGeoTIFFHeaders(const std::string &filePath, bool closeStreamAtEnd = tru
 bool LoadGeoTIFF(const char * filePath);
 bool LoadGeoTIFF(const std::string &filePath);
 void UnloadGeoTIFF();
-const Array2D * GetPointerToBitmap();
+const Matrix_f32 * GetPointerToBitmap();
 double GetSample(unsigned long int x, unsigned long int y, unsigned int sampleOrder);
 
 void DisplayTIFFDetailsOnCLI();

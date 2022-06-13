@@ -3,7 +3,7 @@
 //variables
 bool viewTagsInCLI = true;
 unsigned long int firstIFDOffset;
-Array2D * bitMap = NULL; //the actual holder of the geoTIFF raster's data.
+Matrix_f32 * bitMap = NULL; //the actual holder of the geoTIFF raster's data.
 
 std::vector<GeoKey> intParamsGeoKeys;
 std::vector<GeoKey> doubleParamsGeoKeys;
@@ -1267,19 +1267,19 @@ bool ParseFirstIFDHeader()
 
 bool AllocateBitmapMemory()
 {
-	//Allocate our bitmap in memory as an array of Array2D.
-	//bitMap = std::unique_ptr<Array2D>(new Array2D[tiffDetails.height]);
+	//Allocate our bitmap in memory as an array of Matrix_f32.
+	//bitMap = std::unique_ptr<Matrix_f32>(new Matrix_f32[tiffDetails.height]);
 	//for (int i = 0; i < tiffDetails.height; i++)
 	//{
-	//	bitMap.get()[i] = Array2D(tiffDetails.width, tiffDetails.samplesPerPixel);
+	//	bitMap.get()[i] = Matrix_f32(tiffDetails.width, tiffDetails.samplesPerPixel);
 	//}
 
 	try
 	{
-		bitMap = new Array2D[tiffDetails.width];
+		bitMap = new Matrix_f32[tiffDetails.width];
 		for (unsigned long int i = 0; i < tiffDetails.width; i++)
 		{
-			bitMap[i] = Array2D(tiffDetails.height, tiffDetails.samplesPerPixel);
+			bitMap[i] = Matrix_f32(tiffDetails.height, tiffDetails.samplesPerPixel);
 		}
 	}
 	catch (const std::bad_alloc& e)
@@ -1297,7 +1297,7 @@ void DeallocateBitmapMemory()
 	if (bitMap != NULL)
 	{
 		for (unsigned long int i = 0; i < tiffDetails.width; i++)
-			bitMap[i].~Array2D();
+			bitMap[i].~Matrix_f32();
 		
 		delete[] bitMap;
 		bitMap = NULL;
@@ -1464,7 +1464,7 @@ void UnloadGeoTIFF()
 	geoDetails = GeoTIFFDetails();
 }
 
-const Array2D * GetPointerToBitmap()
+const Matrix_f32 * GetPointerToBitmap()
 {
 	return bitMap;
 }

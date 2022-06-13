@@ -1,8 +1,7 @@
 #pragma once
 #include <fstream>
 
-#include "Array2D.h"
-
+#include "MatricesPP.hpp"
 
 //Structs and enums
 enum class BitmapFormat

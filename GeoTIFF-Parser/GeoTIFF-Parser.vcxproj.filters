@@ -13,12 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\Matrices_PP">
+      <UniqueIdentifier>{f8d6d707-a8fd-40c7-bec0-fc5ef6d72565}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Array2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GeoTIFF_Parser.cpp">
@@ -30,11 +30,17 @@
     <ClCompile Include="GeoTIFF_Parser_Globals.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MatricesPlusPlus\ArrayPP.cpp">
+      <Filter>Source Files\Matrices_PP</Filter>
+    </ClCompile>
+    <ClCompile Include="MatricesPlusPlus\MatrixPP_f32.cpp">
+      <Filter>Source Files\Matrices_PP</Filter>
+    </ClCompile>
+    <ClCompile Include="MatricesPlusPlus\VectorMaths.cpp">
+      <Filter>Source Files\Matrices_PP</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Array2D.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="GeoTIFF_Parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
