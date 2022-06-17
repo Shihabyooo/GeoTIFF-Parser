@@ -6,9 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
-
 #include "GeoTIFF_Parser_Globals.h"
-#include "Decompressor.h"
 
 bool LoadGeoTIFFHeaders(int rasterID, const char * filePath, bool closeStreamAtEnd = true);
 bool LoadGeoTIFFHeaders(int rasterID, const std::string &filePath, bool closeStreamAtEnd = true);
@@ -21,3 +19,5 @@ double GetSample(int rasterID, unsigned long int x, unsigned long int y, unsigne
 void DisplayTIFFDetailsOnCLI(int rasterID);
 void DisplayGeoTIFFDetailsOnCLI(int rasterID);
 void DisplayBitmapOnCLI(int rasterID);
+
+void PurgeAll(); //nukes all loaded memory and resets all ids. Don't see it ever having practical use (given how large vectors can be).

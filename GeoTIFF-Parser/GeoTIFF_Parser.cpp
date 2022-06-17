@@ -1,4 +1,5 @@
 #include "GeoTIFF_Parser.h"
+#include "Decompressor.h"
 
 //variables
 bool viewTagsInCLI = true;
@@ -1411,6 +1412,38 @@ void DisplayBitmapOnCLI(int rasterID)
 		}
 		std::cout << "[ROW_ " << i << "_END]" << std::endl << std::endl;
 	}
+}
+
+void PurgeAll()
+{
+	//for (auto it = bitMaps.begin(); it != bitMaps.end(); ++it)
+	for (int i = 0; i < bitMaps.size(); i++)
+	{
+		if (bitMaps[i] != NULL)
+			for (unsigned long int j = 0; j < tiffDetails[i]->width; j++)
+				(bitMaps[i])[j].~Matrix_f32();
+		delete[] bitMaps[i];
+	}
+	bitMaps.clear();
+
+	for (int i = 0; i < geoDetails.size(); i++)
+	{
+		if (geoDetails[i] != NULL)
+			delete geoDetails[i];
+	}
+	geoDetails.clear();
+
+	for (int i = 0; i < tiffDetails.size(); i++)
+	{
+		if (tiffDetails[i] != NULL)
+			delete tiffDetails[i];
+	}
+	tiffDetails.clear();
+
+
+	intParamsGeoKeys.clear();
+	doubleParamsGeoKeys.clear();
+	asciiParamsGeoKeys.clear();
 }
 
 bool LoadGeoTIFFHeaders(int rasterID, const char * filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
