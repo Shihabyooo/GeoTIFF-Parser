@@ -14,31 +14,31 @@
 //=====================================================================================================================================================================
 
 
-void SetBitmapPixel(unsigned long int _uv[2], const double * const _pixel, Matrix_f32 * const _bitMap)
+void SetBitmapPixel(int rasterID, unsigned long int _uv[2], const double * const _pixel, Matrix_f32 * const _bitMap)
 {
-	for (unsigned long int i = 0; i < tiffDetails.samplesPerPixel; i++)
+	for (unsigned long int i = 0; i < tiffDetails[rasterID]->samplesPerPixel; i++)
 	{
 		_bitMap[_uv[0]][_uv[1]][i] = _pixel[i];
 		
-		//if (_uv[0] >= tiffDetails.width - 1 && _uv[1] >= tiffDetails.height - 1) //test
+		//if (_uv[0] >= tiffDetails[rasterID]->width - 1 && _uv[1] >= tiffDetails[rasterID]->height - 1) //test
 			//std::cout << "Set sample: " << _uv[0] << ", " << _uv[1] << ", " << i << ": " << _pixel[i] << std::endl; //test
 	}
 }
 
-double GetIntSampleCurrentStreamPosition() //ONLY FOR USE WITH UNCOMPRESSED DATA READ FROM DISK!
+double GetIntSampleCurrentStreamPosition(int rasterID) //ONLY FOR USE WITH UNCOMPRESSED DATA READ FROM DISK!
 {
-	char * sample = new char [tiffDetails.bitsPerSample / 8];
-	stream.read(sample, tiffDetails.bitsPerSample / 8);
+	char * sample = new char [tiffDetails[rasterID]->bitsPerSample / 8];
+	stream.read(sample, tiffDetails[rasterID]->bitsPerSample / 8);
 
-	double result = (double)BytesToIntX(sample, tiffDetails.bitsPerSample);
+	double result = (double)BytesToIntX(sample, tiffDetails[rasterID]->bitsPerSample);
 
 	delete[] sample;
 	return result;
 }
 
-double GetIntSamepleFromMemoryData(const unsigned char * data, unsigned long int position)
+double GetIntSamepleFromMemoryData(int rasterID, const unsigned char * data, unsigned long int position)
 {
-	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
+	unsigned short int _bytesPerSample = tiffDetails[rasterID]->bitsPerSample / 8;
 	char * sample = new char[_bytesPerSample];
 
 	position = position * _bytesPerSample;
@@ -46,15 +46,15 @@ double GetIntSamepleFromMemoryData(const unsigned char * data, unsigned long int
 	for (int i = 0; i < _bytesPerSample; i++)
 		sample[i] = data[position + i];
 
-	double result = (double)BytesToIntX(sample, tiffDetails.bitsPerSample);
+	double result = (double)BytesToIntX(sample, tiffDetails[rasterID]->bitsPerSample);
 
 	delete[] sample;
 	return result;
 }
 
-double GetFloatSampleFromMemoryData(const unsigned char * data, unsigned long int position)
+double GetFloatSampleFromMemoryData(int rasterID, const unsigned char * data, unsigned long int position)
 {
-	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
+	unsigned short int _bytesPerSample = tiffDetails[rasterID]->bitsPerSample / 8;
 	char * sample = new char[_bytesPerSample];
 
 	position = position * _bytesPerSample;
@@ -74,9 +74,9 @@ double GetFloatSampleFromMemoryData(const unsigned char * data, unsigned long in
 	return result;
 }
 
-double GetDoubleSampleFromMemoryData(const unsigned char * data, unsigned long int position)
+double GetDoubleSampleFromMemoryData(int rasterID, const unsigned char * data, unsigned long int position)
 {
-	unsigned short int _bytesPerSample = tiffDetails.bitsPerSample / 8;
+	unsigned short int _bytesPerSample = tiffDetails[rasterID]->bitsPerSample / 8;
 	char * sample = new char[_bytesPerSample];
 
 	position = position * _bytesPerSample;
@@ -93,13 +93,14 @@ double GetDoubleSampleFromMemoryData(const unsigned char * data, unsigned long i
 	return result;
 }
 
-void ParseDecompressedDataFromMemory(unsigned int stripOrTileID,
+void ParseDecompressedDataFromMemory(	int rasterID,
+										unsigned int stripOrTileID,
 										Matrix_f32 * const _bitMap,
 										const unsigned char * data, //raw data container.
 										unsigned long int noOfPixelsToParse, //For Compression = 1 TIFFs, this should equal the entire pixel count of the strip/tile.
 										unsigned long int firstPixelOrder = 0) //relative to the current strip/tile. Used for when parsing data mid-strip or mid-tile (like in uncompressed blocks in deflate streams.)
 {	
-		double * pixel = new double[tiffDetails.samplesPerPixel];
+		double * pixel = new double[tiffDetails[rasterID]->samplesPerPixel];
 	
 		for (unsigned long int i = firstPixelOrder; i < noOfPixelsToParse; i++)
 		{
@@ -107,103 +108,103 @@ void ParseDecompressedDataFromMemory(unsigned int stripOrTileID,
 			//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
 	
 			unsigned long int uv[2]; //coordinates of pixel in imagespace (x, y).
-			uv[0] = i % tiffDetails.width; //xCoord
-			uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + static_cast<unsigned long int>(floor((float)i / (float)tiffDetails.width)); //yCoord.
+			uv[0] = i % tiffDetails[rasterID]->width; //xCoord
+			uv[1] = (stripOrTileID * tiffDetails[rasterID]->rowsPerStrip) + static_cast<unsigned long int>(floor((float)i / (float)tiffDetails[rasterID]->width)); //yCoord.
 
 			//TODO there is a bit in the references that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
-			if (uv[0] >= tiffDetails.width || uv[1] >= tiffDetails.height)
+			if (uv[0] >= tiffDetails[rasterID]->width || uv[1] >= tiffDetails[rasterID]->height)
 			{
 				std::cout << "Found unused pixels at i = " << i << std::endl;
 				return;
 			}
 
-			for (unsigned long int j = 0; j < tiffDetails.samplesPerPixel; j++)
+			for (unsigned long int j = 0; j < tiffDetails[rasterID]->samplesPerPixel; j++)
 			{
-				switch (tiffDetails.sampleFormat)
+				switch (tiffDetails[rasterID]->sampleFormat)
 				{
 				case (1): //unsigned int
-					pixel[j] = GetIntSamepleFromMemoryData(data, i+j);
+					pixel[j] = GetIntSamepleFromMemoryData(rasterID, data, i+j);
 					break;
 	
 				case (2): //two’s complement signed integer data
-					pixel[j] = GetIntSamepleFromMemoryData(data, i+j);
+					pixel[j] = GetIntSamepleFromMemoryData(rasterID, data, i+j);
 					break;
 	
 				case (3): //floating points
-					if (tiffDetails.bitsPerSample <= 32) //single precision floats (float).
+					if (tiffDetails[rasterID]->bitsPerSample <= 32) //single precision floats (float).
 					{
-						pixel[j] = GetFloatSampleFromMemoryData(data, i + j);
+						pixel[j] = GetFloatSampleFromMemoryData(rasterID, data, i + j);
 					}
 					else //double precision floats (double).
-						pixel[j] = GetDoubleSampleFromMemoryData(data, i + j);
+						pixel[j] = GetDoubleSampleFromMemoryData(rasterID, data, i + j);
 
 					break;
 	
 				default: //default is unsigned int (case 1)		
-					pixel[j] = GetIntSamepleFromMemoryData(data, i+j);
+					pixel[j] = GetIntSamepleFromMemoryData(rasterID, data, i+j);
 					break;
 				}
 			}
-			SetBitmapPixel(uv, pixel, _bitMap);
+			SetBitmapPixel(rasterID, uv, pixel, _bitMap);
 		}
 	
 		delete[] pixel;
 }
 
-void ParseUncompressedStripOrTileData(int stripOrTileID,  Matrix_f32 * const _bitMap)
+void ParseUncompressedStripOrTileData(int rasterID, int stripOrTileID,  Matrix_f32 * const _bitMap)
 {
-	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
+	stream.seekg(tiffDetails[rasterID]->tileStripOffset.get()[stripOrTileID]);
 
-	double * pixel = new double[tiffDetails.samplesPerPixel];
+	double * pixel = new double[tiffDetails[rasterID]->samplesPerPixel];
 
-	for (unsigned long int i = 0; i < tiffDetails.noOfPixelsPerTileStrip; i++)
+	for (unsigned long int i = 0; i < tiffDetails[rasterID]->noOfPixelsPerTileStrip; i++)
 	{
 		//cache the pixel's location in image. Note: These formulae are only tested for stripped images.
 		//TODO wrap the xCoord and yCoord formulae bellow in an if-statement checking that the format is stripped image. And another if-statement (and of-course, do the math) for tiled images.
 
 		unsigned long int uv[2]; //coordinates of pixel in imagespace (x, y).
-		uv[0] = i % tiffDetails.width; //xCoord.
-		uv[1] = (stripOrTileID * tiffDetails.rowsPerStrip) + static_cast<unsigned long>(floor((float)i / (float)tiffDetails.width)); //yCoord.
+		uv[0] = i % tiffDetails[rasterID]->width; //xCoord.
+		uv[1] = (stripOrTileID * tiffDetails[rasterID]->rowsPerStrip) + static_cast<unsigned long>(floor((float)i / (float)tiffDetails[rasterID]->width)); //yCoord.
 
 		//TODO there is a bit in the refences that states a tile/strip may contain data not used in the image (due to division issues), check how to handle that case and adjust the check bellow accordingly.
-		if (uv[0] > tiffDetails.width || uv[1] > tiffDetails.height)
+		if (uv[0] > tiffDetails[rasterID]->width || uv[1] > tiffDetails[rasterID]->height)
 		{
 			std::cout << "Found unused pixels at i = " << i << std::endl;
 			return;
 		}
 
-		for (unsigned long int j = 0; j < tiffDetails.samplesPerPixel; j++)
+		for (unsigned long int j = 0; j < tiffDetails[rasterID]->samplesPerPixel; j++)
 		{
-			switch (tiffDetails.sampleFormat)
+			switch (tiffDetails[rasterID]->sampleFormat)
 			{
 			case (1): //unsigned int
-				pixel[j] = GetIntSampleCurrentStreamPosition();
+				pixel[j] = GetIntSampleCurrentStreamPosition(rasterID);
 				break;
 
 			case (2): //two’s complement signed integer data
 			{
-				pixel[j] = GetIntSampleCurrentStreamPosition();
+				pixel[j] = GetIntSampleCurrentStreamPosition(rasterID);
 			}
 				break;
 
 			case (3): //floating points
-				if (tiffDetails.bitsPerSample <= 32) //single precision floats (float).
+				if (tiffDetails[rasterID]->bitsPerSample <= 32) //single precision floats (float).
 				{
 					float _sample; //outputing the read value directly as double causes issues.
-					stream.read((char*) &_sample, tiffDetails.bitsPerSample / 8);
+					stream.read((char*) &_sample, tiffDetails[rasterID]->bitsPerSample / 8);
 					pixel[j] = _sample;
 				}
 				else //double precision floats (double).
-					stream.read((char*)&pixel[j], tiffDetails.bitsPerSample / 8);
+					stream.read((char*)&pixel[j], tiffDetails[rasterID]->bitsPerSample / 8);
 				break;
 
 			default: //default is unsigned int (case 1)		
-				pixel[j] = GetIntSampleCurrentStreamPosition();
+				pixel[j] = GetIntSampleCurrentStreamPosition(rasterID);
 				break;
 			}
 		}
 
-		SetBitmapPixel(uv, pixel, _bitMap);
+		SetBitmapPixel(rasterID, uv, pixel, _bitMap);
 	}
 
 	delete[] pixel;
@@ -680,11 +681,11 @@ void DecodeDynamicHuffmanBlock(std::vector<unsigned char> * uncompressedRawData)
 	}
 }
 
-void ParseDeflateStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
+void ParseDeflateStripOrTileData(int rasterID, int stripOrTileID, Matrix_f32 * const _bitMap)
 {
 
 	std::cout << "Attempting to decompress a Deflate data" << std::endl;
-	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
+	stream.seekg(tiffDetails[rasterID]->tileStripOffset.get()[stripOrTileID]);
 
 	short int compressionMethod, compressionInfo;
 	short int checkBits, presetDictionary, compressionLevel;
@@ -801,7 +802,7 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
 	for (int i = 0; i < uncompressedRawData.size(); i++)
 		_uncompressedRawData.get()[i] = uncompressedRawData[i];
 
-	ParseDecompressedDataFromMemory(stripOrTileID, _bitMap, _uncompressedRawData.get(), tiffDetails.noOfPixelsPerTileStrip, 0);
+	ParseDecompressedDataFromMemory(rasterID, stripOrTileID, _bitMap, _uncompressedRawData.get(), tiffDetails[rasterID]->noOfPixelsPerTileStrip, 0);
 	std::cout << "Finished decompression." << std::endl;
 }
 #pragma endregion
@@ -809,19 +810,19 @@ void ParseDeflateStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
 //-----------------------------------------PackBits
 //=====================================================================================================================================================================
 #pragma region PackBits Decompression
-void ParsePackBitsStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
+void ParsePackBitsStripOrTileData(int rasterID, int stripOrTileID, Matrix_f32 * const _bitMap)
 {
-	//std::cout << "Attempted to decompress PackBits data. Strip " << stripOrTileID << " of " << tiffDetails.noOfTilesOrStrips << std::endl; //test
-	stream.seekg(tiffDetails.tileStripOffset.get()[stripOrTileID]);
+	//std::cout << "Attempted to decompress PackBits data. Strip " << stripOrTileID << " of " << tiffDetails[rasterID]->noOfTilesOrStrips << std::endl; //test
+	stream.seekg(tiffDetails[rasterID]->tileStripOffset.get()[stripOrTileID]);
 
 	//estimate number of bytes we excpect to have
 	//I couldn't figure out the correct way to estimate the uncompressed byte count (the references aren't helpful), the loops bellow always overshoots the expected count. So I use 
 	//the logical estimate (noOfBytesInStrip), which is the maximum byte count the ParseDecompressedDataFromMemory() function will make use for anyway, and have a seperate buffer
 	//called noOfBytes, now set to 2x the logical est. and will be used to store the decompressed bytes. This is memory inefficient, but it works...
 
-	unsigned long int noOfBytesInStrip = tiffDetails.rowsPerStrip * (tiffDetails.width + 7) * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
-	//unsigned long int noOfBytes = tiffDetails.noOfPixelsPerTileStrip * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
-	//unsigned long int noOfBytes = tiffDetails.rowsPerStrip * (tiffDetails.width + 7) * tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8;
+	unsigned long int noOfBytesInStrip = tiffDetails[rasterID]->rowsPerStrip * (tiffDetails[rasterID]->width + 7) * tiffDetails[rasterID]->samplesPerPixel * tiffDetails[rasterID]->bitsPerSample / 8;
+	//unsigned long int noOfBytes = tiffDetails[rasterID]->noOfPixelsPerTileStrip * tiffDetails[rasterID]->samplesPerPixel * tiffDetails[rasterID]->bitsPerSample / 8;
+	//unsigned long int noOfBytes = tiffDetails[rasterID]->rowsPerStrip * (tiffDetails[rasterID]->width + 7) * tiffDetails[rasterID]->samplesPerPixel * tiffDetails[rasterID]->bitsPerSample / 8;
 	unsigned long int noOfBytes =  2 * noOfBytesInStrip;
 	//std::cout << "noOfBytes: " << noOfBytes << std::endl; //test
 	//std::cout << "noOfBytesInStrip: " << noOfBytesInStrip << std::endl; //test
@@ -867,7 +868,7 @@ void ParsePackBitsStripOrTileData(int stripOrTileID, Matrix_f32 * const _bitMap)
 	
 	//std::cout << "counter: " << counter << std::endl;//test
 
-	ParseDecompressedDataFromMemory(stripOrTileID, _bitMap, uncompressedRawData.get(), tiffDetails.noOfPixelsPerTileStrip, 0);
+	ParseDecompressedDataFromMemory(rasterID, stripOrTileID, _bitMap, uncompressedRawData.get(), tiffDetails[rasterID]->noOfPixelsPerTileStrip, 0);
 
 	//std::cout << "Finished decompression." << std::endl;
 }

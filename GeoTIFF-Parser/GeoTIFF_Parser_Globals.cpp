@@ -2,8 +2,8 @@
 
 bool isBigEndian;
 std::ifstream stream;
-TIFFDetails tiffDetails;
-GeoTIFFDetails geoDetails;
+std::vector<TIFFDetails *> tiffDetails;
+std::vector<GeoTIFFDetails *> geoDetails;
 
 long int BytesToInt32(const char bytes[4])
 {

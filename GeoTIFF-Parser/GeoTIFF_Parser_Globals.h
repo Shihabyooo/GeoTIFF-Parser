@@ -115,8 +115,8 @@ public:
 //Variables
 extern bool isBigEndian;
 extern std::ifstream stream;
-extern TIFFDetails tiffDetails;
-extern GeoTIFFDetails geoDetails;
+extern std::vector<TIFFDetails *> tiffDetails;
+extern std::vector<GeoTIFFDetails *> geoDetails;
 
 //TODO consider rewriting the functions bellow to take BYTE, WORD and DWORD types, to avoid accidently calling one with char[] smaller than what it expects
 //TODO add functions that convert bytes to UNSIGNED ints, check the parser code with the references for any values that are designed to store uints and replace them with the new functions.

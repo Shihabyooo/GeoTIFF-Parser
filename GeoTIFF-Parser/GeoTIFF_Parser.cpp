@@ -3,16 +3,20 @@
 //variables
 bool viewTagsInCLI = true;
 unsigned long int firstIFDOffset;
-Matrix_f32 * bitMap = NULL; //the actual holder of the geoTIFF raster's data.
+std::vector<Matrix_f32 *> bitMaps;
 
 std::vector<GeoKey> intParamsGeoKeys;
 std::vector<GeoKey> doubleParamsGeoKeys;
 std::vector<GeoKey> asciiParamsGeoKeys;
 
-
 //functions
 //TODO replace all function definitions before LoadGeoTIFF() with forward declarations (except those declared in header), move definitions to the end (and sort according to use).
 //TODO replace GetFieldDescription() and GetGeoKeyDescription with fixed 2D array (or any container of pairs with fast random access) hardcoded into a header file, and have those function only retrieve from those containers.
+bool IsLoadedRaster(int rasterID)
+{
+	return (rasterID >= 0) && rasterID < bitMaps.size();
+}
+
 std::string GetFieldDescription(unsigned short int tagID)
 {
 	std::string desc;
@@ -213,7 +217,7 @@ std::string GetFieldDescription(unsigned short int tagID)
 		desc = "Not yet defined or unknown";
 		break;
 	}
-	std::cout << desc.c_str() << std::endl;
+	//std::cout << desc.c_str() << std::endl;
 	return desc;
 }
 
@@ -362,7 +366,7 @@ std::string GetGeoKeyDescription(unsigned short int keyID)
 		desc = "Unknown or Undefined GeoKey";
 		break;
 	}
-	std::cout << desc.c_str() << std::endl;
+	//std::cout << desc.c_str() << std::endl;
 	return desc;
 }
 
@@ -496,7 +500,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	bool isOffsetData = false;
 	if (tag->count * GetType(tag->fieldTypeID).size > 4)
 	{
-		std::cout << "Field value size is greater than header value field capacity. These bytes are pointers." << std::endl; //test
+		//std::cout << "Field value size is greater than header value field capacity. These bytes are pointers." << std::endl; //test
 		isOffsetData = true;
 	}
 
@@ -587,7 +591,7 @@ short int GetGeoKeyIntData(const GeoKey * geoKey, const short int * dataArray, i
 		result = dataArray[geoKey->offsetValue + valueOrderInKey];
 	}
 
-	std::cout << "GetGeoKeyIntData() returning: " << result << std::endl; //test
+	//std::cout << "GetGeoKeyIntData() returning: " << result << std::endl; //test
 	return result;
 }
 
@@ -600,7 +604,7 @@ double GetGeoKeyDoubleData(const GeoKey * geoKey, const double * dataArray, int 
 	}
 	else
 	{
-		std::cout << "Getting a double value of order: " << geoKey->offsetValue + valueOrderInKey << std::endl; //test
+		//std::cout << "Getting a double value of order: " << geoKey->offsetValue + valueOrderInKey << std::endl; //test
 		result = dataArray[geoKey->offsetValue + valueOrderInKey];
 	}
 
@@ -611,11 +615,11 @@ std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, const char * 
 {
 	std::string result = "";
 
-	std::cout << "ExtractAndMergeMultiASCIIValues() recieved a geoKey with offset: " << geoKey->offsetValue << std::endl; //test
+	//std::cout << "ExtractAndMergeMultiASCIIValues() recieved a geoKey with offset: " << geoKey->offsetValue << std::endl; //test
 
 	for (unsigned int i = geoKey->offsetValue; i < geoKey->offsetValue + geoKey->count; i++)
 	{
-		std::cout << "Getting a ascii value of order: " << i << std::endl; //test
+		//std::cout << "Getting a ascii value of order: " << i << std::endl; //test
 		result += dataArray[i];
 	}
 
@@ -625,46 +629,46 @@ std::string ExtractAndMergeMultiASCIIValues(const GeoKey * geoKey, const char * 
 }
 
 template <typename T>
-void ProcessGeoKey(const GeoKey * geoKey, const T * dataArray = NULL)
+void ProcessGeoKey(int rasterID, const GeoKey * geoKey, const T * dataArray = NULL)
 {
 	switch (geoKey->keyID)
 	{
 	case(1024):  //GTModelTypeGeoKey
-		geoDetails.modelType = GetGeoKeyIntData(geoKey, (short int *)dataArray);
+		geoDetails[rasterID]->modelType = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(1025): //GTRasterTypeGeoKey
-		geoDetails.rasterSpace = GetGeoKeyIntData(geoKey, (short int *)dataArray);
+		geoDetails[rasterID]->rasterSpace = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(2048): //GeodeticCRSGeoKey
-		geoDetails.geodeticCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
+		geoDetails[rasterID]->geodeticCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(3072): //GeodeticCRSGeoKey
-		geoDetails.projectedCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
+		geoDetails[rasterID]->projectedCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 	case(4096): //VerticalCRSGeoKey
-		geoDetails.verticalCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
+		geoDetails[rasterID]->verticalCRS = GetGeoKeyIntData(geoKey, (short int *)dataArray);
 		break;
 
 	case(1026): //GTCitationGeoKey - ASCII
 		break;
 	case(2049): //GeodeticCitationGeoKey - ASCII
-		geoDetails.geodeticCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*)dataArray);
+		geoDetails[rasterID]->geodeticCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*)dataArray);
 		break;
 	case(3073): //ProjectedCitationGeoKey  - ASCII
-		geoDetails.projectedCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*)dataArray);
+		geoDetails[rasterID]->projectedCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*)dataArray);
 		break;
 	case(4097): //VerticalCitationGeoKey  - ASCII
-		geoDetails.verticalCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*) dataArray);
+		geoDetails[rasterID]->verticalCRSCitation = ExtractAndMergeMultiASCIIValues(geoKey, (char*) dataArray);
 		break;
 
 	case(2057): //EllipsoidSemiMajorAxisGeoKey - Double
-		geoDetails.ellipsoidSemiMajorAxis = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
+		geoDetails[rasterID]->ellipsoidSemiMajorAxis = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
 		break;
 	case(2058): //EllipsoidSemiMajorAxisGeoKey - Double
-		geoDetails.ellipsoidSemiMinorAxis = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
+		geoDetails[rasterID]->ellipsoidSemiMinorAxis = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
 		break;
 	case(2059): //EllipsoidInvFlatteningGeoKey - Double
-		geoDetails.ellipsoidInvFlattening = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
+		geoDetails[rasterID]->ellipsoidInvFlattening = GetGeoKeyDoubleData(geoKey, (double *)dataArray);
 		break;
 
 	default:
@@ -672,7 +676,7 @@ void ProcessGeoKey(const GeoKey * geoKey, const T * dataArray = NULL)
 	}
 }
 
-void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
+void ProcessGeoKeyDirectory(int rasterID, const Tag * geoKeyDirectoryTag)
 {
 	std::cout << "Processing geoKeys." << std::endl;
 	stream.seekg(geoKeyDirectoryTag->offsetValue, stream.beg);
@@ -746,7 +750,7 @@ void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
 		else if (geoKey->tiffTagLocation == 0) //These keys have their data inside their own valueOffset bytes.
 		{
 			short int * _nullPtr = NULL; //Because the compiler requires something to figure out typeof(T) with..
-			ProcessGeoKey(geoKey.get(), _nullPtr);
+			ProcessGeoKey(rasterID, geoKey.get(), _nullPtr);
 		}
 		else //shouldn't happen
 		{
@@ -771,71 +775,71 @@ void ProcessGeoKeyDirectory(const Tag * geoKeyDirectoryTag)
 
 }
 
-void ProcessTag(const Tag * tag)
+void ProcessTag(int rasterID, const Tag * tag)
 {
 	switch (tag->tagID)
 	{
 	case (256): //width
-		tiffDetails.width = GetFieldIntData(tag);
+		tiffDetails[rasterID]->width = GetFieldIntData(tag);
 		break;
 	case (257): //height
-		tiffDetails.height = GetFieldIntData(tag);
+		tiffDetails[rasterID]->height = GetFieldIntData(tag);
 		break;
 	case (258): //bps
-		tiffDetails.bitsPerSample = GetFieldIntData(tag);
+		tiffDetails[rasterID]->bitsPerSample = GetFieldIntData(tag);
 		break;
 	case (259): //compression
-		tiffDetails.compression = GetFieldIntData(tag);
+		tiffDetails[rasterID]->compression = GetFieldIntData(tag);
 		break;
 	case (273): //stripoffsets
 	{
 		//std::cout << "allocating tileStripOffset array of rows: " << tag->count << std::endl; //test
-		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
-		tiffDetails.noOfTilesOrStrips = tag->count;
-		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
+		tiffDetails[rasterID]->tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
+		tiffDetails[rasterID]->noOfTilesOrStrips = tag->count;
+		GetFieldIntArrayData(tag, tiffDetails[rasterID]->tileStripOffset.get());
 	}
 		break;
 	case (278): //rowsperstrip
-		tiffDetails.bitmapFormat = BitmapFormat::strips;
-		tiffDetails.rowsPerStrip = GetFieldIntData(tag);
+		tiffDetails[rasterID]->bitmapFormat = BitmapFormat::strips;
+		tiffDetails[rasterID]->rowsPerStrip = GetFieldIntData(tag);
 		break;
 	case (279): //stripbytecount
-		tiffDetails.tileStripByteCount = GetFieldIntData(tag);
+		tiffDetails[rasterID]->tileStripByteCount = GetFieldIntData(tag);
 		break;
 	case (325): //tilebytecount
-		tiffDetails.bitmapFormat = BitmapFormat::tiles;
-		tiffDetails.tileStripByteCount = GetFieldIntData(tag);
+		tiffDetails[rasterID]->bitmapFormat = BitmapFormat::tiles;
+		tiffDetails[rasterID]->tileStripByteCount = GetFieldIntData(tag);
 		break;
 	case (323): //tilelength
-		tiffDetails.tileHeight = GetFieldIntData(tag);
+		tiffDetails[rasterID]->tileHeight = GetFieldIntData(tag);
 		break;
 	case (324): //tileoffsets
 	{
-		tiffDetails.tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
-		tiffDetails.noOfTilesOrStrips = tag->count;
-		GetFieldIntArrayData(tag, tiffDetails.tileStripOffset.get());
+		tiffDetails[rasterID]->tileStripOffset = std::unique_ptr<long int>(new long int[tag->count]);
+		tiffDetails[rasterID]->noOfTilesOrStrips = tag->count;
+		GetFieldIntArrayData(tag, tiffDetails[rasterID]->tileStripOffset.get());
 	}
 		break;
 	case (322): //tilewidth
-		tiffDetails.tileWidth = GetFieldIntData(tag);
+		tiffDetails[rasterID]->tileWidth = GetFieldIntData(tag);
 		break;
 	case (277): //samplesperpixel
-		tiffDetails.samplesPerPixel = GetFieldIntData(tag);
+		tiffDetails[rasterID]->samplesPerPixel = GetFieldIntData(tag);
 		break;
 	case (338): //extrasampletype
-		tiffDetails.extraSampleType = GetFieldIntData(tag);
+		tiffDetails[rasterID]->extraSampleType = GetFieldIntData(tag);
 		break;
 	case (262):
-		tiffDetails.photometricInterpretation = GetFieldIntData(tag);
+		tiffDetails[rasterID]->photometricInterpretation = GetFieldIntData(tag);
 		break;
 	case (284):
-		tiffDetails.planarConfiguration = GetFieldIntData(tag);
+		tiffDetails[rasterID]->planarConfiguration = GetFieldIntData(tag);
 		break;
 	case (339):
-		tiffDetails.sampleFormat = GetFieldIntData(tag);
+		tiffDetails[rasterID]->sampleFormat = GetFieldIntData(tag);
 		break;
 	case (34735): //GeoKeyDirectory
-		ProcessGeoKeyDirectory(tag);
+		ProcessGeoKeyDirectory(rasterID, tag);
 		break;
 	case (34736): //DoubleParamsGeoKey
 		if (doubleParamsGeoKeys.size() > 0)
@@ -843,7 +847,7 @@ void ProcessTag(const Tag * tag)
 			//extract the params stored in this tag.
 			std::unique_ptr<double> doubleParamsData = std::unique_ptr<double>(new double[tag->count]);
 			double buffer;
-			std::cout << "count of doubleParamsData: " << tag->count <<std::endl; //test
+			//std::cout << "count of doubleParamsData: " << tag->count <<std::endl; //test
 
 			stream.seekg(tag->offsetValue);
 			for (unsigned long int i = 0; i < tag->count; i++)
@@ -855,8 +859,8 @@ void ProcessTag(const Tag * tag)
 			//Loop over keys stored in doubleParamsGeoKeys and process them.
 			for (std::vector<GeoKey>::iterator it = doubleParamsGeoKeys.begin(); it < doubleParamsGeoKeys.end(); ++it)
 			{
-				std::cout << "Attempting to process a Double geokey of offset: " << it->offsetValue << ", and count: " << it->count << std::endl; //test
-				ProcessGeoKey(&(*it), doubleParamsData.get());
+				//std::cout << "Attempting to process a Double geokey of offset: " << it->offsetValue << ", and count: " << it->count << std::endl; //test
+				ProcessGeoKey(rasterID, &(*it), doubleParamsData.get());
 			}
 		}
 		break;
@@ -865,7 +869,7 @@ void ProcessTag(const Tag * tag)
 		{
 			//extract the params stored in this tag.
 			std::unique_ptr<char> asciiParamsData = std::unique_ptr<char>(new char[tag->count]);
-			std::cout << "count of asciiParamsData: " << tag->count << std::endl;//test
+			//std::cout << "count of asciiParamsData: " << tag->count << std::endl;//test
 
 			stream.seekg(tag->offsetValue);
 
@@ -880,41 +884,41 @@ void ProcessTag(const Tag * tag)
 			//Loop over keys stored in asciiParamsGeoKeys and process them.
 			for (std::vector<GeoKey>::iterator it = asciiParamsGeoKeys.begin(); it < asciiParamsGeoKeys.end(); ++it)
 			{
-				std::cout << "Attempting to process an ASCII geokey of offset: " << it->offsetValue << ", and count: " << it->count << std::endl; //test
-				ProcessGeoKey(&(*it), asciiParamsData.get());
+				//std::cout << "Attempting to process an ASCII geokey of offset: " << it->offsetValue << ", and count: " << it->count << std::endl; //test
+				ProcessGeoKey(rasterID, &(*it), asciiParamsData.get());
 			}
 		}
 		break;
 	case (33550): //ModelPixelScaleTag
 	{
-		if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+		if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::matrix)
 		{
 			std::cout << "WARNING! This GeoTIFF has both ModelTransformationTag and ModelPixelScaleTag set. This is against GeoTIFF spec." << std::endl;
 			std::cout << "Skipping processing ModelPixelScaleTag" << std::endl;
 			break;
 		}
 		else
-			geoDetails.transformationMethod = RasterToModelTransformationMethod::tieAndScale;
+			geoDetails[rasterID]->transformationMethod = RasterToModelTransformationMethod::tieAndScale;
 
 		stream.seekg(tag->offsetValue);
 		double buffer;
 		for (int i = 0; i < 3; i++)
 		{
 			stream.read((char*)&buffer, sizeof(buffer));
-			geoDetails.pixelScale[i] = buffer;
+			geoDetails[rasterID]->pixelScale[i] = buffer;
 		}
 	}
 		break;
 	case (33922): //ModelTiepointTag
 	{
-		if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+		if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::matrix)
 		{
 			std::cout << "WARNING! This GeoTIFF has both ModelTransformationTag and ModelTiepointTag set. This is against GeoTIFF spec." << std::endl;
 			std::cout << "Skipping processing ModelTiepointTag" << std::endl;
 			break;
 		}
 		else
-			geoDetails.transformationMethod = RasterToModelTransformationMethod::tieAndScale;
+			geoDetails[rasterID]->transformationMethod = RasterToModelTransformationMethod::tieAndScale;
 
 		stream.seekg(tag->offsetValue);
 		double buffer;
@@ -923,21 +927,21 @@ void ProcessTag(const Tag * tag)
 			for (int j = 0; j < 3; j++)
 			{
 				stream.read((char*)&buffer, sizeof(buffer));
-				geoDetails.tiePoints[i][j] = buffer;
+				geoDetails[rasterID]->tiePoints[i][j] = buffer;
 			}
 		}
 	}
 		break;
 	case (34264): //ModelTransformationTag
 	{
-		if (geoDetails.transformationMethod == RasterToModelTransformationMethod::tieAndScale)
+		if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::tieAndScale)
 		{
 			std::cout << "WARNING! This GeoTIFF has both ModelTransformationTag and ModelTiepointTag or ModePixelScaleTag set. This is against GeoTIFF spec." << std::endl;
 			std::cout << "Skipping processing ModelTransformationTag" << std::endl;
 			break;
 		}
 		else
-			geoDetails.transformationMethod = RasterToModelTransformationMethod::matrix;
+			geoDetails[rasterID]->transformationMethod = RasterToModelTransformationMethod::matrix;
 
 
 		stream.seekg(tag->offsetValue);
@@ -947,7 +951,7 @@ void ProcessTag(const Tag * tag)
 			for (int j = 0; j < 4; j++)
 			{
 				stream.read((char*)&buffer, sizeof(buffer));
-				geoDetails.modelTransformationMatrix[i][j] = buffer;
+				geoDetails[rasterID]->modelTransformationMatrix[i][j] = buffer;
 			}
 		}
 	}
@@ -957,16 +961,16 @@ void ProcessTag(const Tag * tag)
 	}
 }
 
-bool ParseStripOrTileData(int stripOrTileID)
+bool ParseStripOrTileData(int rasterID, int stripOrTileID)
 {
-	switch (tiffDetails.compression)
+	switch (tiffDetails[rasterID]->compression)
 	{
 	case (1): //no compression
-		ParseUncompressedStripOrTileData(stripOrTileID, bitMap);
+		ParseUncompressedStripOrTileData(rasterID, stripOrTileID, bitMaps[rasterID]);
 		break;
 
 	case (32773): //PackBits (Macintosh RLE)
-		ParsePackBitsStripOrTileData(stripOrTileID, bitMap);
+		ParsePackBitsStripOrTileData(rasterID, stripOrTileID, bitMaps[rasterID]);
 		break;
 
 	case (2): //CCITT modified Huffman RLE
@@ -1024,52 +1028,63 @@ bool ParseStripOrTileData(int stripOrTileID)
 	return true;
 }
 
-void DisplayTIFFDetailsOnCLI()
+void DisplayTIFFDetailsOnCLI(int rasterID)
 {
+	if (!IsLoadedRaster(rasterID))
+	{
+		std::cout << "ERROR! No TIFF is loaded to memory. (Invalid ID)" << std::endl;
+		return;
+	}
+	if (tiffDetails[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No TIFF is loaded to memory. (Expired ID)" << std::endl;
+		return;
+	}
+
 	std::cout << "=======================================================================================" << std::endl;
 	std::cout << "\t\tTIFF Details" << std::endl;
 	std::cout << "=======================================================================================" << std::endl;
 
-	std::cout << "Dimensions :" << tiffDetails.width << " x " << tiffDetails.height << std::endl;
-	std::cout << "Samples Per Pixel: " << tiffDetails.samplesPerPixel << std::endl;
-	std::cout << "Bits Per Sample: " << tiffDetails.bitsPerSample << std::endl;
-	std::cout << "Extra Samples Type: " << tiffDetails.extraSampleType << std::endl;
-	std::cout << "Sample Format: " << tiffDetails.sampleFormat << std::endl;
-	std::cout << "Compression: " << tiffDetails.compression << std::endl;
+	std::cout << "Dimensions :" << tiffDetails[rasterID]->width << " x " << tiffDetails[rasterID]->height << std::endl;
+	std::cout << "Samples Per Pixel: " << tiffDetails[rasterID]->samplesPerPixel << std::endl;
+	std::cout << "Bits Per Sample: " << tiffDetails[rasterID]->bitsPerSample << std::endl;
+	std::cout << "Extra Samples Type: " << tiffDetails[rasterID]->extraSampleType << std::endl;
+	std::cout << "Sample Format: " << tiffDetails[rasterID]->sampleFormat << std::endl;
+	std::cout << "Compression: " << tiffDetails[rasterID]->compression << std::endl;
 
-	std::cout << "Photmetric Interpretation: " << tiffDetails.photometricInterpretation << std::endl;
-	std::cout << "Planar Configuration: " << tiffDetails.planarConfiguration << std::endl;
+	std::cout << "Photmetric Interpretation: " << tiffDetails[rasterID]->photometricInterpretation << std::endl;
+	std::cout << "Planar Configuration: " << tiffDetails[rasterID]->planarConfiguration << std::endl;
 
 
 
-	switch (tiffDetails.bitmapFormat)
+	switch (tiffDetails[rasterID]->bitmapFormat)
 	{
 	case BitmapFormat::strips:
 		std::cout << "Bitmap format: " << "strips" << std::endl;
-		std::cout << "No. of Strip:" << tiffDetails.noOfTilesOrStrips << std::endl;
-		std::cout << "Strip Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
-		std::cout << "Rows per Strip: " << tiffDetails.rowsPerStrip << std::endl;
-		std::cout << "No. of Pixels per Strip: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
+		std::cout << "No. of Strip:" << tiffDetails[rasterID]->noOfTilesOrStrips << std::endl;
+		std::cout << "Strip Byte Count: " << tiffDetails[rasterID]->tileStripByteCount << std::endl;
+		std::cout << "Rows per Strip: " << tiffDetails[rasterID]->rowsPerStrip << std::endl;
+		std::cout << "No. of Pixels per Strip: " << tiffDetails[rasterID]->noOfPixelsPerTileStrip << std::endl;
 
 	/*	std::cout << "--------------------" << std::endl;
 		std::cout << "Strip offsets:" << std::endl;
-		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
-			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
+		for (int i = 0; i < tiffDetails[rasterID]->noOfTilesOrStrips; i++)
+			std::cout << "Offset " << i << ": " << tiffDetails[rasterID]->tileStripOffset.get()[i] << std::endl;
 		std::cout << "--------------------" << std::endl;*/
 		break;
 
 	case BitmapFormat::tiles:
 		std::cout << "Bitmap format: " << "tiles" << std::endl;
-		std::cout << "No. of Tiles:" << tiffDetails.noOfTilesOrStrips << std::endl;
-		std::cout << "Tile Byte Count: " << tiffDetails.tileStripByteCount << std::endl;
-		std::cout << "Tile Height: " << tiffDetails.tileHeight << std::endl;
-		std::cout << "Tile Width: " << tiffDetails.tileWidth << std::endl;
-		std::cout << "No. of Pixels per Tile: " << tiffDetails.noOfPixelsPerTileStrip << std::endl;
+		std::cout << "No. of Tiles:" << tiffDetails[rasterID]->noOfTilesOrStrips << std::endl;
+		std::cout << "Tile Byte Count: " << tiffDetails[rasterID]->tileStripByteCount << std::endl;
+		std::cout << "Tile Height: " << tiffDetails[rasterID]->tileHeight << std::endl;
+		std::cout << "Tile Width: " << tiffDetails[rasterID]->tileWidth << std::endl;
+		std::cout << "No. of Pixels per Tile: " << tiffDetails[rasterID]->noOfPixelsPerTileStrip << std::endl;
 
 	/*	std::cout << "--------------------" << std::endl;
 		std::cout << "Tile offsets:" << std::endl;
-		for (int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
-			std::cout << "Offset " << i << ": " << tiffDetails.tileStripOffset.get()[i] << std::endl;
+		for (int i = 0; i < tiffDetails[rasterID]->noOfTilesOrStrips; i++)
+			std::cout << "Offset " << i << ": " << tiffDetails[rasterID]->tileStripOffset.get()[i] << std::endl;
 		std::cout << "--------------------" << std::endl;*/
 		break;
 
@@ -1085,55 +1100,66 @@ void DisplayTIFFDetailsOnCLI()
 	std::cout << "=======================================================================================" << std::endl;
 }
 
-void DisplayGeoTIFFDetailsOnCLI()
+void DisplayGeoTIFFDetailsOnCLI(int rasterID)
 {
+	if (!IsLoadedRaster(rasterID))
+	{
+		std::cout << "ERROR! No TIFF is loaded to memory. (Invalid ID)" << std::endl;
+		return;
+	}
+	if (geoDetails[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No TIFF is loaded to memory. (Expired ID)" << std::endl;
+		return;
+	}
+
 	std::cout << "=======================================================================================" << std::endl;
 	std::cout << "\t\tGeoTIFF Details" << std::endl;
 	std::cout << "=======================================================================================" << std::endl;
 
-	std::cout << "Raster Space: " << geoDetails.rasterSpace << std::endl;
-	std::cout << "Model Type: " << geoDetails.modelType << std::endl;
-	std::cout << "Transformation Method: " << (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix? "Matrix" : "Tie and Scale") << std::endl;
+	std::cout << "Raster Space: " << geoDetails[rasterID]->rasterSpace << std::endl;
+	std::cout << "Model Type: " << geoDetails[rasterID]->modelType << std::endl;
+	std::cout << "Transformation Method: " << (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::matrix? "Matrix" : "Tie and Scale") << std::endl;
 
 
-	if (geoDetails.transformationMethod == RasterToModelTransformationMethod::tieAndScale)
+	if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::tieAndScale)
 	{
 		std::cout << "Tie Points" << std::endl;
 		for (int i = 0; i < 2; i++)
-			std::cout << "\t" << geoDetails.tiePoints[i][0] << ",  " << geoDetails.tiePoints[i][1] << ",  " << geoDetails.tiePoints[i][2] << std::endl;
-		std::cout << "Pixel Scale: " << geoDetails.pixelScale[0] << " x " << geoDetails.pixelScale[1] << " x " << geoDetails.pixelScale[2] << std::endl;
+			std::cout << "\t" << geoDetails[rasterID]->tiePoints[i][0] << ",  " << geoDetails[rasterID]->tiePoints[i][1] << ",  " << geoDetails[rasterID]->tiePoints[i][2] << std::endl;
+		std::cout << "Pixel Scale: " << geoDetails[rasterID]->pixelScale[0] << " x " << geoDetails[rasterID]->pixelScale[1] << " x " << geoDetails[rasterID]->pixelScale[2] << std::endl;
 	}
-	else if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+	else if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::matrix)
 	{
 		std::cout << "Raster to Mode Transformation Matrix:" << std::endl;
 		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
-				std::cout << geoDetails.modelTransformationMatrix[i][j] << "\t";
+				std::cout << geoDetails[rasterID]->modelTransformationMatrix[i][j] << "\t";
 			
 			std::cout << std::endl;
 		}
 	}
 
-	std::cout << "Projected CRS: " << geoDetails.projectedCRS << std::endl;
-	std::cout << "Geodetic CRS: " << geoDetails.geodeticCRS << std::endl;
-	std::cout << "Vertical CRS: " << geoDetails.verticalCRS << std::endl;
+	std::cout << "Projected CRS: " << geoDetails[rasterID]->projectedCRS << std::endl;
+	std::cout << "Geodetic CRS: " << geoDetails[rasterID]->geodeticCRS << std::endl;
+	std::cout << "Vertical CRS: " << geoDetails[rasterID]->verticalCRS << std::endl;
 
-	std::cout << "GeoTIFF Citation: " << geoDetails.geotiffCitation.c_str() << std::endl;
-	std::cout << "Geodetic CRS Citation: " << geoDetails.geodeticCRSCitation.c_str() << std::endl;
-	std::cout << "Projected CRS Citation: " << geoDetails.projectedCRSCitation.c_str() << std::endl;
-	std::cout << "Vertical CRS Citation: " << geoDetails.verticalCRSCitation.c_str() << std::endl;
+	std::cout << "GeoTIFF Citation: " << geoDetails[rasterID]->geotiffCitation.c_str() << std::endl;
+	std::cout << "Geodetic CRS Citation: " << geoDetails[rasterID]->geodeticCRSCitation.c_str() << std::endl;
+	std::cout << "Projected CRS Citation: " << geoDetails[rasterID]->projectedCRSCitation.c_str() << std::endl;
+	std::cout << "Vertical CRS Citation: " << geoDetails[rasterID]->verticalCRSCitation.c_str() << std::endl;
 
-	std::cout << "Ellipsoid: " << geoDetails.ellipsoid << std::endl;
-	std::cout << "Ellispod Semi Major Axis: " << geoDetails.ellipsoidSemiMajorAxis << std::endl;
-	std::cout << "Ellipsoid Semi Minor Axis: " << geoDetails.ellipsoidSemiMinorAxis << std::endl;
-	std::cout << "Ellipsoid Inverse Flattening: " << geoDetails.ellipsoidInvFlattening << std::endl;
+	std::cout << "Ellipsoid: " << geoDetails[rasterID]->ellipsoid << std::endl;
+	std::cout << "Ellispod Semi Major Axis: " << geoDetails[rasterID]->ellipsoidSemiMajorAxis << std::endl;
+	std::cout << "Ellipsoid Semi Minor Axis: " << geoDetails[rasterID]->ellipsoidSemiMinorAxis << std::endl;
+	std::cout << "Ellipsoid Inverse Flattening: " << geoDetails[rasterID]->ellipsoidInvFlattening << std::endl;
 
-	std::cout << "Vertical Datum: " << geoDetails.verticalDatum << std::endl;
+	std::cout << "Vertical Datum: " << geoDetails[rasterID]->verticalDatum << std::endl;
 
 	std::cout << "Bounding Box:" << std::endl;
-	std::cout << "\t" << geoDetails.cornerNW[0] << ", " << geoDetails.cornerNW[1] << "\t\t" << geoDetails.cornerNE[0] << ", " << geoDetails.cornerNE[1] << std::endl;
-	std::cout << "\t" << geoDetails.cornerSW[0] << ", " << geoDetails.cornerSW[1] << "\t\t" << geoDetails.cornerSE[0] << ", " << geoDetails.cornerSE[1] << std::endl;
+	std::cout << "\t" << geoDetails[rasterID]->cornerNW[0] << ", " << geoDetails[rasterID]->cornerNW[1] << "\t\t" << geoDetails[rasterID]->cornerNE[0] << ", " << geoDetails[rasterID]->cornerNE[1] << std::endl;
+	std::cout << "\t" << geoDetails[rasterID]->cornerSW[0] << ", " << geoDetails[rasterID]->cornerSW[1] << "\t\t" << geoDetails[rasterID]->cornerSE[0] << ", " << geoDetails[rasterID]->cornerSE[1] << std::endl;
 
 	std::cout << "=======================================================================================" << std::endl;
 	std::cout << "=======================================================================================" << std::endl;
@@ -1200,7 +1226,7 @@ bool ParseTIFFHeader()
 	return true;
 }
 
-bool ParseFirstIFDHeader()
+bool ParseFirstIFDHeader(int rasterID)
 {
 	//char byte[1];
 	char word[2];
@@ -1249,11 +1275,11 @@ bool ParseFirstIFDHeader()
 
 		endOfLastTag = stream.tellg();
 
-		ProcessTag(tag.get());
+		ProcessTag(rasterID, tag.get());
 	}
 
 	//Fill out our last remaining TIFFDetail, the Number of Pixels in each strip/tile.
-	tiffDetails.noOfPixelsPerTileStrip = tiffDetails.tileStripByteCount / (tiffDetails.samplesPerPixel * tiffDetails.bitsPerSample / 8);
+	tiffDetails[rasterID]->noOfPixelsPerTileStrip = tiffDetails[rasterID]->tileStripByteCount / (tiffDetails[rasterID]->samplesPerPixel * tiffDetails[rasterID]->bitsPerSample / 8);
 
 	if (viewTagsInCLI)
 	{
@@ -1265,21 +1291,16 @@ bool ParseFirstIFDHeader()
 	return true;
 }
 
-bool AllocateBitmapMemory()
+bool AllocateBitmapMemory(int rasterID)
 {
-	//Allocate our bitmap in memory as an array of Matrix_f32.
-	//bitMap = std::unique_ptr<Matrix_f32>(new Matrix_f32[tiffDetails.height]);
-	//for (int i = 0; i < tiffDetails.height; i++)
-	//{
-	//	bitMap.get()[i] = Matrix_f32(tiffDetails.width, tiffDetails.samplesPerPixel);
-	//}
-
+	Matrix_f32 * newBitmap;
+	bitMaps.push_back(newBitmap);
 	try
 	{
-		bitMap = new Matrix_f32[tiffDetails.width];
-		for (unsigned long int i = 0; i < tiffDetails.width; i++)
+		bitMaps[rasterID] = new Matrix_f32[tiffDetails[rasterID]->width];
+		for (unsigned long int i = 0; i < tiffDetails[rasterID]->width; i++)
 		{
-			bitMap[i] = Matrix_f32(tiffDetails.height, tiffDetails.samplesPerPixel);
+			bitMaps[rasterID][i] = Matrix_f32(tiffDetails[rasterID]->height, tiffDetails[rasterID]->samplesPerPixel);
 		}
 	}
 	catch (const std::bad_alloc& e)
@@ -1292,37 +1313,40 @@ bool AllocateBitmapMemory()
 	return true;
 }
 
-void DeallocateBitmapMemory()
+void DeallocateBitmapMemory(int rasterID)
 {
-	if (bitMap != NULL)
+	if (!IsLoadedRaster(rasterID))
+		return;
+	
+	if (bitMaps[rasterID] != NULL)
 	{
-		for (unsigned long int i = 0; i < tiffDetails.width; i++)
-			bitMap[i].~Matrix_f32();
+		for (unsigned long int i = 0; i < tiffDetails[rasterID]->width; i++)
+			(bitMaps[rasterID])[i].~Matrix_f32();
 		
-		delete[] bitMap;
-		bitMap = NULL;
+		delete[] bitMaps[rasterID];
+		bitMaps[rasterID] = NULL;
 	}
 }
 
-bool ComputeGeographicBoundingBox() //technically, we're only computing a 2D rect here...
+bool ComputeGeographicBoundingBox(int rasterID) //technically, we're only computing a 2D rect here...
 {
 	//Current implementation assumes tiepoints in image space is pixel 0,0.
-	if (geoDetails.transformationMethod == RasterToModelTransformationMethod::tieAndScale)
+	if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::tieAndScale)
 	{
-		geoDetails.cornerSW[0] = geoDetails.tiePoints[1][0];
-		geoDetails.cornerSW[1] = geoDetails.tiePoints[1][1] - geoDetails.pixelScale[1] * tiffDetails.height;
+		geoDetails[rasterID]->cornerSW[0] = geoDetails[rasterID]->tiePoints[1][0];
+		geoDetails[rasterID]->cornerSW[1] = geoDetails[rasterID]->tiePoints[1][1] - geoDetails[rasterID]->pixelScale[1] * tiffDetails[rasterID]->height;
 
-		geoDetails.cornerNW[0] = geoDetails.tiePoints[1][0];
-		geoDetails.cornerNW[1] = geoDetails.tiePoints[1][1];
+		geoDetails[rasterID]->cornerNW[0] = geoDetails[rasterID]->tiePoints[1][0];
+		geoDetails[rasterID]->cornerNW[1] = geoDetails[rasterID]->tiePoints[1][1];
 
-		geoDetails.cornerNE[0] = geoDetails.tiePoints[1][0] + geoDetails.pixelScale[0] * tiffDetails.width;
-		geoDetails.cornerNE[1] = geoDetails.tiePoints[1][1];
+		geoDetails[rasterID]->cornerNE[0] = geoDetails[rasterID]->tiePoints[1][0] + geoDetails[rasterID]->pixelScale[0] * tiffDetails[rasterID]->width;
+		geoDetails[rasterID]->cornerNE[1] = geoDetails[rasterID]->tiePoints[1][1];
 
-		geoDetails.cornerSE[0] = geoDetails.tiePoints[1][0] + geoDetails.pixelScale[0] * tiffDetails.width;
-		geoDetails.cornerSE[1] = geoDetails.tiePoints[1][1]- geoDetails.pixelScale[1] * tiffDetails.height;
+		geoDetails[rasterID]->cornerSE[0] = geoDetails[rasterID]->tiePoints[1][0] + geoDetails[rasterID]->pixelScale[0] * tiffDetails[rasterID]->width;
+		geoDetails[rasterID]->cornerSE[1] = geoDetails[rasterID]->tiePoints[1][1]- geoDetails[rasterID]->pixelScale[1] * tiffDetails[rasterID]->height;
 
 	}
-	else if (geoDetails.transformationMethod == RasterToModelTransformationMethod::matrix)
+	else if (geoDetails[rasterID]->transformationMethod == RasterToModelTransformationMethod::matrix)
 	{
 		std::cout << "ERROR! Cannot determine the GeoTIFF's bounding box, Matrix Raster-Model transformation method is not supported." << std::endl;
 		return false;
@@ -1336,23 +1360,23 @@ bool ComputeGeographicBoundingBox() //technically, we're only computing a 2D rec
 	return true;
 }
 
-bool ParseFirstBitmap()
+bool ParseFirstBitmap(int rasterID)
 {
-	if (tiffDetails.planarConfiguration != 1)
+	if (tiffDetails[rasterID]->planarConfiguration != 1)
 	{
 		std::cout << "ERROR! This reader cannot parse non-chunky (TIFF6.0 Planar Configuration other than 1) TIFF files." << std::endl;
 		return false;
 	}
-	else if (tiffDetails.bitsPerSample != 8 && tiffDetails.bitsPerSample != 16 && tiffDetails.bitsPerSample != 32)
+	else if (tiffDetails[rasterID]->bitsPerSample != 8 && tiffDetails[rasterID]->bitsPerSample != 16 && tiffDetails[rasterID]->bitsPerSample != 32)
 	{
 		std::cout << "ERROR! This reader can only parse 8, 16 and 32 bits-per-samples images." << std::endl;
 		return false;
 	}
 	else
 	{
-		for (unsigned long int i = 0; i < tiffDetails.noOfTilesOrStrips; i++)
+		for (unsigned long int i = 0; i < tiffDetails[rasterID]->noOfTilesOrStrips; i++)
 		{
-			if (!ParseStripOrTileData(i))
+			if (!ParseStripOrTileData(rasterID, i))
 				return false;
 		}
 	}
@@ -1360,23 +1384,28 @@ bool ParseFirstBitmap()
 	return true;
 }
 
-void DisplayBitmapOnCLI()
+void DisplayBitmapOnCLI(int rasterID)
 {
-	if (bitMap == NULL)
+	if (!IsLoadedRaster(rasterID))
 	{
-		std::cout << "ERROR! No Bitmap is loaded to memory." << std::endl;
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Invalid ID)" << std::endl;
+		return;
+	}
+	if (bitMaps[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Expired ID)" << std::endl;
 		return;
 	}
 
-	for (unsigned long int i = 0; i < tiffDetails.height; i++)
+	for (unsigned long int i = 0; i < tiffDetails[rasterID]->height; i++)
 	{
-		for (unsigned long int j = 0; j < tiffDetails.width; j++)
+		for (unsigned long int j = 0; j < tiffDetails[rasterID]->width; j++)
 		{
-			for (unsigned long int k = 0; k < tiffDetails.samplesPerPixel; k++)
+			for (unsigned long int k = 0; k < tiffDetails[rasterID]->samplesPerPixel; k++)
 			{
 				if (k > 0)
 					std::cout << ",";
-				std::cout << bitMap[j][i][k];
+				std::cout << (bitMaps[rasterID])[j][i][k];
 			}
 			std::cout << "\t";
 		}
@@ -1384,13 +1413,13 @@ void DisplayBitmapOnCLI()
 	}
 }
 
-bool LoadGeoTIFFHeaders(const char * filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
+bool LoadGeoTIFFHeaders(int rasterID, const char * filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
 {
 	std::string path(filePath);
-	return LoadGeoTIFFHeaders(path);
+	return LoadGeoTIFFHeaders(rasterID, path);
 }
 
-bool LoadGeoTIFFHeaders(const std::string &filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
+bool LoadGeoTIFFHeaders(int rasterID, const std::string &filePath, bool closeStreamAtEnd) //Loads only the headers of the file. Usefull in case we want to check the file's specs before loading its bitmap content
 {
 	if (!OpenTIFFFile(filePath))
 		return false;
@@ -1402,7 +1431,7 @@ bool LoadGeoTIFFHeaders(const std::string &filePath, bool closeStreamAtEnd) //Lo
 		return false;
 	}
 
-	if (!ParseFirstIFDHeader()) //Currently, no error checking is done in ParseFirstIFDHeader(), but future work should include some.
+	if (!ParseFirstIFDHeader(rasterID)) //Currently, no error checking is done in ParseFirstIFDHeader(), but future work should include some.
 	{
 
 		if (stream.is_open())
@@ -1417,40 +1446,57 @@ bool LoadGeoTIFFHeaders(const std::string &filePath, bool closeStreamAtEnd) //Lo
 	return true;
 }
 
-bool LoadGeoTIFF(const char * filePath) //Load entire GeoTIFF file -including bitmap- to memory.
+bool LoadGeoTIFF(const char * filePath, int * outGeoTIFFID) //Load entire GeoTIFF file -including bitmap- to memory.
 {
 	std::string path(filePath);
-	return LoadGeoTIFF(path);
+	return LoadGeoTIFF(path, outGeoTIFFID);
 }
 
-bool LoadGeoTIFF(const std::string &filePath) //Load entire GeoTIFF file -including bitmap- to memory.
+bool LoadGeoTIFF(const std::string &filePath, int * outGeoTIFFID) //Load entire GeoTIFF file -including bitmap- to memory.
 {
-	if (!LoadGeoTIFFHeaders(filePath, false)) //file open-ability check is done inside LoadGeoTIFFHeaders().
+	//create new id
+	GeoTIFFDetails * newGeoDetails = new GeoTIFFDetails();
+	TIFFDetails * newTiffDetails = new TIFFDetails();
+
+	geoDetails.push_back(newGeoDetails);
+	tiffDetails.push_back(newTiffDetails);
+	
+	int newID = *outGeoTIFFID  = geoDetails.size() - 1;
+
+	if (!LoadGeoTIFFHeaders(newID, filePath, false)) //file open-ability check is done inside LoadGeoTIFFHeaders().
 		return false;
 
-	if (!AllocateBitmapMemory())
+	if (!AllocateBitmapMemory(newID))
 	{
 		if (stream.is_open())
 			stream.close();
 		return false;
 	}
 
-	if (!ParseFirstBitmap())
+	if (!ParseFirstBitmap(newID))
 	{
-		UnloadGeoTIFF();
+		UnloadGeoTIFF(newID);
 		return false;
 	}
 
 	stream.close();
 
-	ComputeGeographicBoundingBox();
+	ComputeGeographicBoundingBox(newID);
+
+	//Don't need geokeys anymore
+	intParamsGeoKeys.clear();
+	doubleParamsGeoKeys.clear();
+	asciiParamsGeoKeys.clear();
 
 	return true;
 }
 
-void UnloadGeoTIFF()
+void UnloadGeoTIFF(int rasterID)
 {
-	DeallocateBitmapMemory();
+	if (!IsLoadedRaster(rasterID))
+		return;
+
+	DeallocateBitmapMemory(rasterID);
 
 	intParamsGeoKeys.clear();
 	doubleParamsGeoKeys.clear();
@@ -1460,23 +1506,30 @@ void UnloadGeoTIFF()
 		stream.close();
 	stream.clear();
 
-	tiffDetails = TIFFDetails();
-	geoDetails = GeoTIFFDetails();
+	delete tiffDetails[rasterID];	
+	delete geoDetails[rasterID];
+
+	tiffDetails[rasterID] = NULL;
+	geoDetails[rasterID] = NULL;
 }
 
-const Matrix_f32 * GetPointerToBitmap()
+const Matrix_f32 * GetPointerToBitmap(int rasterID)
 {
-	return bitMap;
+	return bitMaps[rasterID];
 }
 
-double GetSample(unsigned long int x, unsigned long int y, unsigned int sampleOrder)
+double GetSample(int rasterID, unsigned long int x, unsigned long int y, unsigned int sampleOrder)
 {
-
-	if (x > tiffDetails.width || y > tiffDetails.height || sampleOrder > tiffDetails.samplesPerPixel)
+	if (rasterID >= bitMaps.size())
+	{
+		std::cout << "ERROR! No loaded raster with provided ID." << std::endl;
+		return std::numeric_limits<float>().min();
+	}
+	if (x > tiffDetails[rasterID]->width || y > tiffDetails[rasterID]->height || sampleOrder > tiffDetails[rasterID]->samplesPerPixel)
 	{
 		std::cout << "ERROR! Attempting to get a sample outside boundary of bitmap." << std::endl;
-		return 0.0f;
+		return std::numeric_limits<float>().min();
 	}
 	else
-		return bitMap[x][y][sampleOrder];
+		return (bitMaps[rasterID])[x][y][sampleOrder];
 }
