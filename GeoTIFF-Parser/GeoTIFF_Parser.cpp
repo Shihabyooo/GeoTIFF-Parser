@@ -1546,9 +1546,52 @@ void UnloadGeoTIFF(int rasterID)
 	geoDetails[rasterID] = NULL;
 }
 
-const Matrix_f32 * GetPointerToBitmap(int rasterID)
+Matrix_f32 const * GetPointerToBitmap(int rasterID)
 {
+	if (!IsLoadedRaster(rasterID))
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Invalid ID)" << std::endl;
+		return NULL;
+	}
+	if (bitMaps[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Expired ID)" << std::endl;
+		return NULL;
+	}
+
 	return bitMaps[rasterID];
+}
+
+TIFFDetails const * GetPointerToTIFFDetails(int rasterID)
+{
+	if (!IsLoadedRaster(rasterID))
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Invalid ID)" << std::endl;
+		return NULL;
+	}
+	if (bitMaps[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Expired ID)" << std::endl;
+		return NULL;
+	}
+
+	return tiffDetails[rasterID];
+}
+
+GeoTIFFDetails const * GetPointerToGeoTIFFDetails(int rasterID)
+{
+	if (!IsLoadedRaster(rasterID))
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Invalid ID)" << std::endl;
+		return NULL;
+	}
+	if (bitMaps[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Expired ID)" << std::endl;
+		return NULL;
+	}
+
+	return geoDetails[rasterID];
 }
 
 double GetSample(int rasterID, unsigned long int x, unsigned long int y, unsigned int sampleOrder)
