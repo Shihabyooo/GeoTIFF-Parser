@@ -12,7 +12,7 @@
 //#define _USE_AVX256 //ALlows use of 256bit SIMD intrinsics
 //#define _USE_AVX512 //Allows use of 512bit SIMD intrinsics //AVX-512 is not common in mainstream processors
 
-//#define _USE_FMA256 //Allows use of 256bit fused mulitply-add intrinsics.
+#define _USE_FMA256 //Allows use of 256bit fused mulitply-add intrinsics.
 
 //Set size of vectors used in SIMD functions based on
 //TODO replace this _BEST_PERF impl above
@@ -21,18 +21,21 @@
         #error Attempting to compile for 512bit AVX instructions without AVX-512F support.
     #endif
     #define _VECTOR_SIZE_F32 16
+	#define _VECTOR_SIZE_F64 8
     #define _VECTORIZED_CODE
 #elif defined(_USE_AVX256)
     #ifndef __AVX2__
         #error Attempting to compile for 256bit AVX instructions without AVX2 support.
     #endif
     #define _VECTOR_SIZE_F32 8
+	#define _VECTOR_SIZE_F64 4
     #define _VECTORIZED_CODE
 #elif defined(_USE_SSE)
     #ifndef __SSE2__
         #error Attempting to compile for 128bit SSE instructions without SSE2 support.
     #endif
     #define _VECTOR_SIZE_F32 4
+	#define _VECTOR_SIZE_F64 2
     #define _VECTORIZED_CODE
 #endif
 

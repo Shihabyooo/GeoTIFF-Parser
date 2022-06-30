@@ -13,7 +13,7 @@ bool LoadGeoTIFFHeaders(int rasterID, const std::string &filePath, bool closeStr
 bool LoadGeoTIFF(const char * filePath, int * outGeoTIFFID);
 bool LoadGeoTIFF(const std::string &filePath, int * outGeoTIFFID);
 void UnloadGeoTIFF(int rasterID);
-Matrix_f32 const * GetPointerToBitmap(int rasterID);
+Matrix_f64 const * GetPointerToBitmap(int rasterID);
 TIFFDetails const * GetPointerToTIFFDetails(int rasterID);
 GeoTIFFDetails const * GetPointerToGeoTIFFDetails(int rasterID);
 

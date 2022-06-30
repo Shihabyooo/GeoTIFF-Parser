@@ -31,16 +31,15 @@ Array2D<T>::Array2D(_INDEX _rows, _INDEX _columns, T defaultValue)
 template <typename T>
 Array2D<T>::Array2D(const Array2D<T> & sourceArr)
 {
-	//content = NULL;
+	std::cout << "Copy constructor\n" << std::endl; //test
 	*this = sourceArr;
 }
 
-// template <typename T>
-// Array2D<T>::Array2D(std::vector<std::vector<T>> & sourceVec)
-// {
-// 	//content = NULL;
-// 	*this = sourceVec;
-// }
+template<typename T>
+Array2D<T>::Array2D(Array2D<T>&& sourceArr)
+{
+	*this = std::move(sourceArr);
+}
 
 template <typename T>
 Array2D<T>::~Array2D()
@@ -49,7 +48,7 @@ Array2D<T>::~Array2D()
 }
 
 template <typename T>
-void Array2D<T>::operator=(const Array2D<T> & sourceArr)
+Array2D<T> & Array2D<T>::operator=(const Array2D<T> & sourceArr)
 {
 	//Before assigning a new conent to current instance of an object, we must first delete its current content, if it exists. The existence check is already done inside DeleteContent().
 	DeleteContent();
@@ -61,7 +60,7 @@ void Array2D<T>::operator=(const Array2D<T> & sourceArr)
 	if (sourceArr.content == NULL)
 	{
 		content = NULL;
-		return;
+		return *this;
 	}
 
 	Alloc(rows, columns);
@@ -69,6 +68,24 @@ void Array2D<T>::operator=(const Array2D<T> & sourceArr)
 	for (size_t i = 0; i < rows; i++)
 		for (size_t j = 0; j < columns; j++)
 			content[i][j] = sourceArr.GetValue(i, j);
+
+	return *this;
+}
+
+template<typename T>
+Array2D<T> & Array2D<T>::operator=(Array2D<T>&& sourceArr)
+{	
+	DeleteContent();
+	//assign address of content from sourceArr to this, and fill in size.
+	content = sourceArr.content;
+	columns = sourceArr.columns;
+	rows = sourceArr.rows;
+
+	//Prevent sourceArr from cleaning the memory now assigned to this obj (destructor first checks for NULL)
+	sourceArr.content = NULL; 
+	sourceArr.columns = sourceArr.rows = 0;
+
+	return *this;
 }
 
 // template <typename T>
@@ -157,6 +174,18 @@ T * const & Array2D<T>::operator[] (const _INDEX _row)
 	return content[_row];
 }
 
+template<typename T>
+T const * const & Array2D<T>::operator[](const _INDEX _row) const
+{
+#ifdef _USE_BOUNDS_CHECK
+	if (content == NULL			//Checking whether this object is empty. Making an assumption that initializing the first level of the content is automatically followed by init of sublevel.
+		|| _row >= rows)		//Checking out-of-bound writes.
+		throw std::out_of_range("ERROR! Column or Row value out of range or content set to NULL");
+#endif
+
+	return content[_row];
+}
+
 template <typename T>
 void Array2D<T>::SetValue(_INDEX _row, _INDEX _column, T value)
 {
@@ -193,13 +222,59 @@ _INDEX Array2D<T>::Columns() const
 	return columns;
 }
 
-template <typename T>
-bool Array2D<T>::IsEmpty() const
+template<typename T>
+std::unique_ptr<T[]> Array2D<T>::GetRow(_INDEX row) const
 {
-	if(content == NULL || (rows < 1 && columns < 1))
-		return true;
+	std::unique_ptr<T[]> rowCopy = std::make_unique<T[]>(columns);
 
-	return false;
+	for (_INDEX i = 0; i < columns; i++)
+		rowCopy[i] = content[row][i];
+
+	return rowCopy;
+}
+
+template<typename T>
+std::unique_ptr<T[]> Array2D<T>::GetColumn(_INDEX column) const
+{
+	std::unique_ptr<T[]> colCopy = std::make_unique<T[]>(rows);
+
+	for (_INDEX i = 0; i < rows; i++)
+		colCopy[i] = content[i][column];
+
+	return colCopy;
+}
+
+template<typename T>
+T * Array2D<T>::GetRowPtr(_INDEX row)
+{
+#ifdef _USE_BOUNDS_CHECK
+	if (row < 0 || row >= rows)
+		return NULL;
+#endif
+
+	return content[row];
+}
+
+template<typename T>
+T ** Array2D<T>::GetColumnPtr(_INDEX column)
+{
+#ifdef _USE_BOUNDS_CHECK
+	if (column < 0 || column >= columns)
+		return NULL;
+#endif
+
+	//need to create a new pointer
+	T ** colPtr = new T*[rows];
+	T * contentPtr = *content;
+	contentPtr += column;
+
+	for (_INDEX i = 0; i < rows; i++)
+	{
+		colPtr[i] = contentPtr;
+		contentPtr += columns;
+	}
+
+	return colPtr;
 }
 
 template <typename T>
@@ -247,7 +322,7 @@ Array2D<T> Array2D<T>::GetSubMatrix(_INDEX beginRow, _INDEX noOfRows, _INDEX beg
 }
 
 template <typename T>
-Array2D<T> Array2D<T>::Transpose()
+Array2D<T> Array2D<T>::Transpose() const
 {
 	return TransposeArray(*this);
 }
@@ -273,7 +348,7 @@ void Array2D<T>::SwapRows(_INDEX firstRow, _INDEX secondRow)
 }
 
 template <typename T>
-bool Array2D<T>::IsSymmetric()
+bool Array2D<T>::IsSymmetric() const
 {
 	return IsSymmetric(*this);
 }
@@ -309,6 +384,15 @@ bool Array2D<T>::IsSymmetric(const Array2D<T> & arr)
 	}
 
 	return true;
+}
+
+template <typename T>
+bool Array2D<T>::IsEmpty() const
+{
+	if (content == NULL || (rows < 1 && columns < 1))
+		return true;
+
+	return false;
 }
 
 template <typename T>
@@ -379,7 +463,7 @@ Array2D<T> Array2D<T>::StackArrays(const Array2D<T> &arr1, const Array2D<T> &arr
 }
 
 template <typename T>
-void Array2D<T>::DisplayArrayInCLI(unsigned int displayPrecision)
+void Array2D<T>::DisplayOnCLI(unsigned int displayPrecision)
 {
 	if (content == NULL)
 	{
@@ -400,7 +484,7 @@ void Array2D<T>::DisplayArrayInCLI(unsigned int displayPrecision)
 }
 
 template <typename T>
-Array2D<T> Array2D<T>::TransposeArray(const Array2D<T> & sourceArr)
+Array2D<T> Array2D<T>::TransposeArray(const Array2D<T> & sourceArr) const
 {
 	if (sourceArr.content == NULL)
 	{

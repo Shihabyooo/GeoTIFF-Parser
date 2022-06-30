@@ -4,7 +4,7 @@
 //variables
 bool viewTagsInCLI = true;
 unsigned long int firstIFDOffset;
-std::vector<Matrix_f32 *> bitMaps;
+std::vector<Matrix_f64 *> bitMaps;
 
 std::vector<GeoKey> intParamsGeoKeys;
 std::vector<GeoKey> doubleParamsGeoKeys;
@@ -1294,14 +1294,14 @@ bool ParseFirstIFDHeader(int rasterID)
 
 bool AllocateBitmapMemory(int rasterID)
 {
-	Matrix_f32 * newBitmap;
+	Matrix_f64 * newBitmap;
 	bitMaps.push_back(newBitmap);
 	try
 	{
-		bitMaps[rasterID] = new Matrix_f32[tiffDetails[rasterID]->width];
+		bitMaps[rasterID] = new Matrix_f64[tiffDetails[rasterID]->width];
 		for (unsigned long int i = 0; i < tiffDetails[rasterID]->width; i++)
 		{
-			bitMaps[rasterID][i] = Matrix_f32(tiffDetails[rasterID]->height, tiffDetails[rasterID]->samplesPerPixel);
+			bitMaps[rasterID][i] = Matrix_f64(tiffDetails[rasterID]->height, tiffDetails[rasterID]->samplesPerPixel);
 		}
 	}
 	catch (const std::bad_alloc& e)
@@ -1322,7 +1322,7 @@ void DeallocateBitmapMemory(int rasterID)
 	if (bitMaps[rasterID] != NULL)
 	{
 		for (unsigned long int i = 0; i < tiffDetails[rasterID]->width; i++)
-			(bitMaps[rasterID])[i].~Matrix_f32();
+			(bitMaps[rasterID])[i].~Matrix_f64();
 		
 		delete[] bitMaps[rasterID];
 		bitMaps[rasterID] = NULL;
@@ -1421,7 +1421,7 @@ void PurgeAll()
 	{
 		if (bitMaps[i] != NULL)
 			for (unsigned long int j = 0; j < tiffDetails[i]->width; j++)
-				(bitMaps[i])[j].~Matrix_f32();
+				(bitMaps[i])[j].~Matrix_f64();
 		delete[] bitMaps[i];
 	}
 	bitMaps.clear();
@@ -1546,7 +1546,7 @@ void UnloadGeoTIFF(int rasterID)
 	geoDetails[rasterID] = NULL;
 }
 
-Matrix_f32 const * GetPointerToBitmap(int rasterID)
+Matrix_f64 const * GetPointerToBitmap(int rasterID)
 {
 	if (!IsLoadedRaster(rasterID))
 	{
