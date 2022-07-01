@@ -10,20 +10,20 @@ int main()
 	//LoadGeoTIFFHeaders("C:\\Users\\Shihabyooo\\source\\repos\\GeoTIFF-Parser\\x64\\Release\\TestData\\alos_UTM_nocomp_int16.tif");
 	//end test
 
-	//int rasterID;
+	int rasterID;
 
 	//LoadGeoTIFF("TestData\\alos_UTM_nocomp_int16.tif", &rasterID);
-	//LoadGeoTIFF("TestData\\alos_UTM_packbits_int16.tif");
-	//LoadGeoTIFF("TestData\\alos_UTM_packbits_float64.tif");
-	//LoadGeoTIFF("TestData\\alos_UTM_packbits_float32.tif");
-	//LoadGeoTIFF("TestData\\alos_UTM_packbits_int32.tif");
-	//LoadGeoTIFF("TestData\\alos_UTM_nocomp_float32.tif");
-	//LoadGeoTIFF("TestData\\alos_UTM_deflate_uint16.tif");
-	//LoadGeoTIFF("TestData\\alos_UTM_deflate_float32.tif");
-	//LoadGeoTIFF("TestData\\testTIFF.tif");
-	//LoadGeoTIFF("TestData\\testTIFF_32.tif");
-	//LoadGeoTIFF("wdem_uncomp.tif");
-	//LoadGeoTIFF("wdem_packbits.tif");
+	//LoadGeoTIFF("TestData\\alos_UTM_packbits_int16.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\alos_UTM_packbits_float64.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\alos_UTM_packbits_float32.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\alos_UTM_packbits_int32.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\alos_UTM_nocomp_float32.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\alos_UTM_deflate_uint16.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\alos_UTM_deflate_float32.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\testTIFF.tif", &rasterID);
+	//LoadGeoTIFF("TestData\\testTIFF_32.tif", &rasterID);
+	//LoadGeoTIFF("wdem_uncomp.tif", &rasterID);
+	//LoadGeoTIFF("wdem_packbits.tif", &rasterID);
 	
 	//DisplayTIFFDetailsOnCLI(rasterID);
 	//DisplayGeoTIFFDetailsOnCLI(rasterID);
@@ -54,7 +54,23 @@ int main()
 	//UnloadGeoTIFF(secondRasterID);
 	//UnloadGeoTIFF(thirdRasterID);
 
+	int slopeID;
+	//TODO there is a memory out of bound io with the raster bellow. Doesn't happen with the packbit version.
+	//LoadGeoTIFF("C:\\Test\\Slope_Percent.tif", &slopeID);
+	LoadGeoTIFF("C:\\Test\\Slope_packbit.tif", &slopeID);
 
+	Matrix_f64 const * map = GetPointerToBitmap(slopeID);
+	TIFFDetails const * details = GetPointerToTIFFDetails(slopeID);
+
+	for (int i = 0; i < details->width; i++)
+	{
+		for (int j = 0; j < details->height; j++)
+			std::cout << map[0][j][i] << " ";
+	}
+	std::cout << std::endl;
+
+	UnloadGeoTIFF(slopeID);
+	//UnloadGeoTIFF(rasterID);
 	std::cout << "FINISHED!" << std::endl; //test
 	return 0;
 }

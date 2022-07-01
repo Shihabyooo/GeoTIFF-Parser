@@ -2,8 +2,8 @@
 #include "Decompressor.h"
 
 //variables
-bool viewTagsInCLI = true;
-unsigned long int firstIFDOffset;
+bool viewTagsInCLI = false;
+size_t firstIFDOffset;
 std::vector<Matrix_f64 *> bitMaps;
 
 std::vector<GeoKey> intParamsGeoKeys;
@@ -513,7 +513,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	if (tag->fieldTypeID == 3) //short
 	{
 		char buffer[2];
-		for (unsigned long int i = 0; i < tag->count; i++) //all arithmatic uses of i bellow are always positive, safe to use unsigned integers.
+		for (size_t i = 0; i < tag->count; i++) //all arithmatic uses of i bellow are always positive, safe to use unsigned integers.
 		{
 			if (isOffsetData)
 				stream.read(buffer, sizeof(buffer));
@@ -538,7 +538,7 @@ void GetFieldIntArrayData(const Tag * tag, long int * outputArray)
 	else if (tag->fieldTypeID == 4) //long
 	{
 		char buffer[4];
-		for (unsigned long int i = 0; i < tag->count; i++)
+		for (size_t i = 0; i < tag->count; i++)
 		{
 			/*if (isOffsetData)
 			{
@@ -704,7 +704,7 @@ void ProcessGeoKeyDirectory(int rasterID, const Tag * geoKeyDirectoryTag)
 
 	//TODO add a check here to make sure versions match the ones adopted in this code. Else stop execution of remainin of program (a universal bool and int for error code that LoadTIFF() checks after processing tags? Throw Exception?)
 
-	for (unsigned long int i = 0; i < numberOfKeys; i++)
+	for (size_t i = 0; i < numberOfKeys; i++)
 	{
 		std::unique_ptr<GeoKey> geoKey = std::unique_ptr<GeoKey>(new GeoKey);
 
@@ -851,7 +851,7 @@ void ProcessTag(int rasterID, const Tag * tag)
 			//std::cout << "count of doubleParamsData: " << tag->count <<std::endl; //test
 
 			stream.seekg(tag->offsetValue);
-			for (unsigned long int i = 0; i < tag->count; i++)
+			for (size_t i = 0; i < tag->count; i++)
 			{
 				stream.read((char*)&buffer, sizeof(buffer));
 				doubleParamsData.get()[i] = buffer;
@@ -875,7 +875,7 @@ void ProcessTag(int rasterID, const Tag * tag)
 			stream.seekg(tag->offsetValue);
 
 			char buffer = ' ';
-			for (unsigned long int i = 0; i < tag->count; i++)
+			for (size_t i = 0; i < tag->count; i++)
 			{
 
 				stream.read(&buffer, sizeof(buffer));
@@ -1292,16 +1292,19 @@ bool ParseFirstIFDHeader(int rasterID)
 	return true;
 }
 
+//TODO redo allocation to have the Matrix_f64 hold the dataset for a single sample.
+//i.e. Matrix_f64 * newBitmap = new Matrix_f64[samplesPerPixel],
+//and newBitmap[i] = Matrix_f64(height, width)
 bool AllocateBitmapMemory(int rasterID)
 {
 	Matrix_f64 * newBitmap;
 	bitMaps.push_back(newBitmap);
 	try
 	{
-		bitMaps[rasterID] = new Matrix_f64[tiffDetails[rasterID]->width];
-		for (unsigned long int i = 0; i < tiffDetails[rasterID]->width; i++)
+		bitMaps[rasterID] = new Matrix_f64[tiffDetails[rasterID]->samplesPerPixel];
+		for (size_t i = 0; i < tiffDetails[rasterID]->samplesPerPixel; i++)
 		{
-			bitMaps[rasterID][i] = Matrix_f64(tiffDetails[rasterID]->height, tiffDetails[rasterID]->samplesPerPixel);
+			bitMaps[rasterID][i] = Matrix_f64(tiffDetails[rasterID]->height, tiffDetails[rasterID]->width);
 		}
 	}
 	catch (const std::bad_alloc& e)
@@ -1321,7 +1324,7 @@ void DeallocateBitmapMemory(int rasterID)
 	
 	if (bitMaps[rasterID] != NULL)
 	{
-		for (unsigned long int i = 0; i < tiffDetails[rasterID]->width; i++)
+		for (size_t i = 0; i < tiffDetails[rasterID]->samplesPerPixel; i++)
 			(bitMaps[rasterID])[i].~Matrix_f64();
 		
 		delete[] bitMaps[rasterID];
@@ -1375,7 +1378,7 @@ bool ParseFirstBitmap(int rasterID)
 	}
 	else
 	{
-		for (unsigned long int i = 0; i < tiffDetails[rasterID]->noOfTilesOrStrips; i++)
+		for (size_t i = 0; i < tiffDetails[rasterID]->noOfTilesOrStrips; i++)
 		{
 			if (!ParseStripOrTileData(rasterID, i))
 				return false;
@@ -1398,11 +1401,11 @@ void DisplayBitmapOnCLI(int rasterID)
 		return;
 	}
 
-	for (unsigned long int i = 0; i < tiffDetails[rasterID]->height; i++)
+	for (size_t i = 0; i < tiffDetails[rasterID]->height; i++)
 	{
-		for (unsigned long int j = 0; j < tiffDetails[rasterID]->width; j++)
+		for (size_t j = 0; j < tiffDetails[rasterID]->width; j++)
 		{
-			for (unsigned long int k = 0; k < tiffDetails[rasterID]->samplesPerPixel; k++)
+			for (size_t k = 0; k < tiffDetails[rasterID]->samplesPerPixel; k++)
 			{
 				if (k > 0)
 					std::cout << ",";
@@ -1420,7 +1423,7 @@ void PurgeAll()
 	for (int i = 0; i < bitMaps.size(); i++)
 	{
 		if (bitMaps[i] != NULL)
-			for (unsigned long int j = 0; j < tiffDetails[i]->width; j++)
+			for (size_t j = 0; j < tiffDetails[i]->width; j++)
 				(bitMaps[i])[j].~Matrix_f64();
 		delete[] bitMaps[i];
 	}
@@ -1562,6 +1565,27 @@ Matrix_f64 const * GetPointerToBitmap(int rasterID)
 	return bitMaps[rasterID];
 }
 
+Matrix_f64 const * GetBand(int rasterID, size_t band)
+{
+	if (!IsLoadedRaster(rasterID))
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Invalid ID)" << std::endl;
+		return NULL; //This is bad. Should not return ref to a temp object.
+	}
+	if (bitMaps[rasterID] == NULL)
+	{
+		std::cout << "ERROR! No Bitmap is loaded to memory. (Expired ID)" << std::endl;
+		return NULL;
+	}
+	if (band >= tiffDetails[rasterID]->samplesPerPixel)
+	{
+		std::cout << "ERROR! Loaded raster does not contain this band. Max band No. " << tiffDetails[rasterID]->samplesPerPixel - 1 << std::endl;
+		return NULL;
+	}
+
+	return &bitMaps[rasterID][band];
+}
+
 TIFFDetails const * GetPointerToTIFFDetails(int rasterID)
 {
 	if (!IsLoadedRaster(rasterID))
@@ -1594,7 +1618,7 @@ GeoTIFFDetails const * GetPointerToGeoTIFFDetails(int rasterID)
 	return geoDetails[rasterID];
 }
 
-double GetSample(int rasterID, unsigned long int x, unsigned long int y, unsigned int sampleOrder)
+double GetSample(int rasterID, size_t x, size_t y, unsigned int sampleOrder)
 {
 	if (rasterID >= bitMaps.size())
 	{
